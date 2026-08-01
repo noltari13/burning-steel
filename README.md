@@ -1,0 +1,35 @@
+# Burning Steel — Mech & Warband Builder
+
+A single-file, offline-capable builder for the *Revised Burning Steel* tabletop rules.
+No install, no account, nothing to download — it runs entirely in the browser and
+saves your builds locally on your own device.
+
+**Play it here:** https://noltari13.github.io/burning-steel/
+
+## What it does
+
+- **Frame designer** — spend Frame Points on HP, weight, energy, hardpoints,
+  movement and systems, including the alternate weight/energy payments.
+- **Equipment, weapon, missile and hacking kits** — full point budgets with live
+  validation, so an illegal build tells you exactly what's wrong.
+- **Duplicate buttons** — copy a weapon kit, missile type, program or a whole mech
+  with every setting intact. Handy for twin-linked loadouts and identical chassis.
+- **Warband mode** — set a team budget (200 FP is standard), build a roster of
+  mechs against it, and save, export or print the whole team at once.
+- **Printable sheets** — one clean sheet per mech, plus a roster page in warband mode.
+
+## Saving your work
+
+Builds are stored in your browser's local storage, so they survive updates to the
+site but do not follow you to another device or browser. Use **Export JSON** /
+**Export warband JSON** to move a build or team between devices, or to share one
+with another player.
+
+## For the designer
+
+All game numbers live in one block near the top of `index.html` — search for
+`GAME DATA`. Cost tables, equipment, weapon modules, missile payloads and program
+effects are plain lists; edit a value, save, refresh. Instructions are commented
+inline.
+
+`mech_calculator_v2.html` is the earlier single-mech-only version, kept for reference.

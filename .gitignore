@@ -1,0 +1,9 @@
+# This repo is public and exists only to host the builder on GitHub Pages.
+# Everything in the working folder is ignored by default; the files that get
+# published are whitelisted below. Draft rules, model analyses and scratch
+# files stay local.
+*
+!.gitignore
+!README.md
+!index.html
+!mech_calculator_v2.html

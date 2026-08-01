@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burning Steel — Mech Calculator</title>
+<!--
+  BURNING STEEL — MECH CALCULATOR
+  ================================
+  A single-file mech builder for the Revised Burning Steel rules.
+  Open this file in any web browser. No internet needed.
+
+  WANT TO TWEAK THE GAME NUMBERS?
+  Open this file in a text editor (Notepad works) and search for: GAME DATA
+  Every cost table, equipment item, weapon module, missile payload, and
+  program effect lives in that one block. Edit values, add rows, save,
+  and refresh the browser. Instructions are commented inline.
+-->
+<style>
+  :root{
+    --bg:#16181c; --card:#22262c; --card2:#2a2f36; --line:#3a4048;
+    --text:#e8e6e1; --dim:#9aa0a8; --accent:#ff7a2f; --accent2:#ffb347;
+    --bad:#ff5c5c; --good:#7fd68a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif;padding-bottom:60px}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+  h1{color:var(--accent);font-size:26px;margin:18px 0 2px}
+  h1 small{color:var(--dim);font-size:14px;font-weight:normal;margin-left:10px}
+  h2{color:var(--accent2);font-size:19px;border-bottom:1px solid var(--line);
+    padding-bottom:4px;margin:26px 0 12px}
+  h3{font-size:15px;margin:0 0 8px;color:var(--text)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:14px;margin-bottom:12px}
+  .kitcard{background:var(--card2)}
+  select,input[type=text],input[type=number]{
+    background:#191c20;color:var(--text);border:1px solid var(--line);
+    border-radius:5px;padding:4px 6px;font-size:14px}
+  input[type=text]{width:180px}
+  select:focus,input:focus{outline:1px solid var(--accent)}
+  button{background:#333a43;color:var(--text);border:1px solid var(--line);
+    border-radius:5px;padding:4px 10px;font-size:13px;cursor:pointer}
+  button:hover{background:#3f4750}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#1a1408;font-weight:600}
+  button.primary:hover{background:var(--accent2)}
+  button.danger{color:var(--bad)}
+  button:disabled{opacity:.4;cursor:default}
+  .bar{position:sticky;top:0;z-index:10;background:#1d2026;
+    border-bottom:2px solid var(--accent);padding:8px 0;margin-bottom:6px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:6px;
+    padding:4px 10px;font-size:13px;white-space:nowrap}
+  .chip b{color:var(--accent2)}
+  .chip.over{border-color:var(--bad)}
+  .chip.over b{color:var(--bad)}
+  .statrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:5px 0;border-bottom:1px dashed #2e343b}
+  .statrow:last-child{border-bottom:none}
+  .statrow .lab{width:150px;font-weight:600}
+  .statrow .fp{color:var(--dim);font-size:13px;min-width:60px}
+  .alt{color:var(--dim);font-size:13px}
+  .alt input{width:52px}
+  .eqcat{color:var(--accent2);font-weight:700;margin:12px 0 4px}
+  .eqcat:first-child{margin-top:0}
+  .eqrow{display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:6px 0;border-bottom:1px dashed #2e343b}
+  .eqrow:last-child{border-bottom:none}
+  .eqinfo{flex:1;min-width:0}
+  .eqname{font-weight:600}
+  .eqcost{color:var(--dim);font-size:12px;margin-left:8px;white-space:nowrap}
+  .eqfx{color:var(--dim);font-size:13px}
+  .eqctl{white-space:nowrap;display:flex;align-items:center;gap:6px}
+  .cnt{display:inline-block;min-width:20px;text-align:center;font-weight:700;color:var(--accent2)}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:6px 0}
+  .row label{font-size:13px;color:var(--dim)}
+  .kv{font-size:13px;color:var(--dim)}
+  .kv b{color:var(--text)}
+  .budget{font-weight:700}
+  .budget.over{color:var(--bad)}
+  .mods{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:2px 14px;margin-top:6px}
+  .mods label{font-size:13px;color:var(--text);display:flex;gap:6px;align-items:baseline}
+  .mods small{color:var(--dim)}
+  .warnbox{border-color:var(--bad)}
+  .warnbox li{color:var(--bad)}
+  .okmsg{color:var(--good)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  #summary{background:#fff;color:#111;border-radius:8px;padding:20px;margin-top:10px}
+  #summary h2{color:#b34700;border-color:#ccc;margin-top:14px}
+  #summary h3{color:#111}
+  #summary .kv{color:#444}
+  #summary .kv b{color:#111}
+  #summary ul{margin:4px 0;padding-left:20px}
+  #summary li{margin:2px 0;font-size:14px;color:#222}
+  details.help{margin:20px 0;color:var(--dim);font-size:14px}
+  details.help summary{cursor:pointer;color:var(--accent2)}
+  code{background:#191c20;padding:1px 5px;border-radius:4px;font-size:13px}
+  /* ---- Mobile layout (phones / narrow screens) ---- */
+  @media (max-width:640px){
+    h1{font-size:22px}
+    h2{font-size:17px}
+    /* 16px inputs stop iOS from zooming in on focus */
+    select,input[type=text],input[type=number]{font-size:16px;padding:6px 8px}
+    button{padding:8px 12px;font-size:14px}
+    .toolbar{display:grid;grid-template-columns:1fr 1fr}
+    .toolbar label{grid-column:1/-1}
+    .toolbar input[type=text],.toolbar select{width:100%}
+    /* budget bar: one swipeable line instead of a tall wrapped block */
+    .chips{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+    .chip{font-size:12px;padding:3px 8px}
+    .statrow{flex-direction:column;align-items:stretch;gap:4px}
+    .statrow .lab{width:auto}
+    .statrow .fp{min-width:0}
+    .statrow select{width:100%}
+    /* kit cards: two-column field grid, labels above controls */
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;align-items:end}
+    .row label{display:flex;flex-direction:column;gap:2px}
+    .row label select{width:100%}
+    .row>input[type=text]{grid-column:1/-1;width:100%}
+    .row .budget,.row .kv{grid-column:1/-1}
+    .mods{grid-template-columns:1fr}
+    .eqrow{align-items:flex-start}
+    .eqctl{margin-top:2px}
+    .eqctl button{min-width:38px;font-size:16px}
+    #summary{padding:12px}
+  }
+  @media print{
+    body{background:#fff;padding:0}
+    .no-print{display:none !important}
+    #summary{border:none;padding:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   GAME DATA  —  edit everything below to tweak the game.
+   ---------------------------------------------------------------------
+   Rules of thumb:
+   - "vals" and "fp" arrays must stay the same length (they line up
+     column-for-column like the tables in the rulebook).
+   - Costs: w = weight, e = energy, s = systems, wp/mp/pp = design points.
+   - To ADD an item (module, payload, equipment, program effect), copy an
+     existing line, change the values, keep the comma at the end.
+   - To REMOVE an item, delete its whole line.
+   - After editing, save this file and refresh the browser. If the page
+     goes blank, you probably deleted a comma or bracket — undo and retry.
+   ===================================================================== */
+const DATA = {
+
+  frame: {
+    baseCredits: 20,     // cost of a bare frame
+    creditsPerFP: 2,     // credits per Frame Point
+    fpMax: 60,           // maximum FP investment
+    baseDv: 3,
+    baseHeatCap: 10,
+    stats: {
+      // perRankFP = FP refunded per rank paid with weight/energy instead.
+      hp: { label:"Hit Points (HP)", vals:[10,12,14,16,18,20,22,24,26,28,30],
+            fp:[0,1,2,3,4,5,6,7,8,9,10], perRankFP:1,
+            note:"2 ranks may be bought with 1 weight" },
+      w:  { label:"Weight Max (W)",  vals:[2,3,4,5,6,7,8,9,10],
+            fp:[0,2,4,6,8,10,12,14,16], perRankFP:2 },
+      e:  { label:"Energy Max (E)",  vals:[2,3,4,5,6,7,8,9,10],
+            fp:[0,2,4,6,8,10,12,14,16], perRankFP:2 },
+      ha: { label:"Hardpoints (Ha)", vals:[1,2,3,4,5,6],
+            fp:[0,3,6,9,12,15], perRankFP:3 },
+      m:  { label:"Movement (M)",    vals:[2,3,4,5,6,7],
+            fp:[0,3,6,9,12,15], perRankFP:3,
+            note:"each rank may be bought with 1 weight OR 1 energy" },
+      s:  { label:"Systems (S)",     vals:[2,3,4,5,6,7,8],
+            fp:[0,3,6,9,12,15,18], perRankFP:3,
+            note:"each rank may be bought with 1 energy" },
+    }
+  },
+
+  // Non-kit equipment. cat groups them; w/e/s are stat costs; limit = max copies.
+  equipment: [
+    {name:"Jammer Pack",     cat:"Packs (3 ammo each)", w:0,e:2,s:1, limit:2, fx:"DEPLOY 1 Jammer token (2Dv 2HP). Systems attacks −2 vs mechs within a medium area."},
+    {name:"Repair Pack",     cat:"Packs (3 ammo each)", w:1,e:0,s:0, limit:2, fx:"REPAIR action: self or adjacent mech gains 10 + d10 HP. 1 ammo."},
+    {name:"Cover Pack",      cat:"Packs (3 ammo each)", w:1,e:0,s:0, limit:2, fx:"DEPLOY 2 wall tokens (height 2, 10HP, 2Dv) adjacent. 1 ammo."},
+    {name:"Shield Pack",     cat:"Packs (3 ammo each)", w:0,e:2,s:1, limit:2, fx:"SHIELD reaction: prevent all damage dealt this turn to this mech. 1 ammo."},
+    {name:"Stabilizer Pack", cat:"Packs (3 ammo each)", w:0,e:0,s:2, limit:2, fx:"STABILIZE: +2 to hit with weapon attacks, M becomes 0. Undo consumes 1 ammo."},
+    {name:"Targeting Relay", cat:"Relays", w:0,e:0,s:2, limit:1, fx:"SPOT reaction: ally attacking an enemy in this mech's LoS gains +2 to hit."},
+    {name:"Command Relay",   cat:"Relays", w:2,e:2,s:2, limit:1, fx:"This mech's order may activate another mech within LoS."},
+    {name:"Hacking Relay",   cat:"Relays", w:0,e:2,s:1, limit:1, fx:"Friendly program attacks targeting this mech may originate from it."},
+    {name:"Charge Jets",     cat:"Jets", w:0,e:1,s:1, limit:1, fx:"CHARGE: move up to M, then slam attack. +1 heat per 2 tiles moved."},
+    {name:"Hover Jets",      cat:"Jets", w:0,e:2,s:1, limit:1, fx:"Hovers; ignores ground effects."},
+    {name:"Jump Jets",       cat:"Jets", w:0,e:1,s:1, limit:1, fx:"JUMP: move up to M ignoring ground effects and height. +1 heat per 2 tiles."},
+    {name:"Jink Jets",       cat:"Jets", w:0,e:2,s:0, limit:1, fx:"JINK reaction: after resolving an attack against this mech, move 1 hex."},
+    {name:"Armored Plates",  cat:"Passive", w:2,e:0,s:0, limit:2, fx:"+1 Dv."},
+    {name:"Gapped Armor",    cat:"Passive", w:1,e:0,s:0, limit:1, fx:"Incoming chip damage is always 1."},
+    {name:"Heat Sinks",      cat:"Passive", w:1,e:0,s:0, limit:2, fx:"+heat capacity equal to ½ weight max (rounded up)."},
+    {name:"Air-Cooled",      cat:"Passive", w:0,e:0,s:1, limit:1, fx:"Lose heat equal to evasion Dv bonus at end of turn."},
+    {name:"Radiator",        cat:"Passive", w:0,e:1,s:0, limit:2, fx:"Remove 1 extra heat when using COOLING."},
+    {name:"Overdrive Engine",cat:"Passive", w:2,e:2,s:2, limit:1, fx:"Extra order per round, but base heat capacity becomes 5."},
+    {name:"Safety Protocols",cat:"Passive", w:0,e:1,s:1, limit:1, fx:"Roll two dice for threshold effects, pick one (after re-rolls)."},
+  ],
+
+  // WEAPON DESIGNER. Kit base cost: 1W 1E + 1-3 hardpoints.
+  weapon: {
+    baseW:1, baseE:1, wpPerHardpoint:5, maxBonusW:3, maxBonusE:3, kitLimit:6,
+    range:    { labels:["4–5","5–7","7–10","10–15","15–21"],
+                mins:[4,5,7,10,15], maxs:[5,7,10,15,21], cost:[0,1,2,3,4] },
+    rangeMin: { vals:[0,1,2,3,4,5,6,7,8,9,10], cost:[0,1,2,3,4,5,6,7,8,9,10] }, // reduces range minimum by val
+    shots:    { vals:[1,2,3,4,5,6],       cost:[0,3,6,9,12,15] },
+    damage:   { vals:[2,3,4,5,6,8],       cost:[0,2,4,6,8,10] },
+    accuracy: { vals:[0,1,2,3,4,5],       cost:[0,3,6,9,12,15] },
+    modules: [
+      // melee:true = weapon range becomes 1 and range WP costs are ignored.
+      {name:"Melee",         w:0,e:0,s:0,wp:0, melee:true, fx:"Range = 1. Gains PURSUE reaction (follow an enemy leaving an adjacent tile)."},
+      {name:"Energetic",     w:0,e:2,s:0,wp:2, fx:"+½ energy max (rounded up) to damage."},
+      {name:"Beam",          w:0,e:2,s:0,wp:2, fx:"½ optimal range band. Attacks all LoS units in a line to the target hex."},
+      {name:"Heated",        w:0,e:2,s:0,wp:1, fx:"Target gains 1 heat per 2 damage dealt."},
+      {name:"Blasting",      w:0,e:0,s:0,wp:2, fx:"Double damage to structures."},
+      {name:"Precise",       w:0,e:0,s:1,wp:1, fx:"Critical hits upgrade one crit level."},
+      {name:"Indirect",      w:0,e:0,s:2,wp:2, fx:"Attacks do not require LoS."},
+      {name:"Shredding",     w:0,e:0,s:0,wp:2, fx:"On crit: target loses 1 Dv (×crit level) until repaired."},
+      {name:"Air Burst",     w:1,e:0,s:0,wp:2, fx:"+1 to hit; only usable at optimal range."},
+      {name:"Core Targeting",w:0,e:0,s:1,wp:1, fx:"+1 to hit; deals no chip damage."},
+      {name:"Heat Seeking",  w:0,e:0,s:1,wp:1, fx:"+1 to hit per 5 heat on the target."},
+      {name:"Scoped",        w:0,e:0,s:1,wp:1, fx:"Ignore partial cover; cannot fire under optimal range."},
+      {name:"Automatic",     w:0,e:0,s:0,wp:2, fx:"Roll an extra d10 per attack action, drop the lowest."},
+    ]
+  },
+
+  // MISSILE DESIGNER. Kit base cost: 2W + 1-3 hardpoints. One missile type per hardpoint used.
+  missile: {
+    baseW:2, mpPerHardpoint:5, maxBonusW:3, kitLimit:6,
+    range:    { labels:["3–5","4–7","5–10","6–12"], cost:[0,1,2,3] },
+    size:     { labels:["Target Hex","Small","Medium","Large"], cost:[0,2,4,6] },
+    ammo:     { vals:[4,6,8,10], cost:[0,1,2,3] },
+    duration: { vals:[1,2,3,4],  cost:[0,1,2,3] },
+    // Payloads: levels = selectable versions. A missile may take several payloads.
+    payloads: [
+      {name:"Damaging",    levels:[{lab:"1 dmg",cost:2},{lab:"2 dmg",cost:3},{lab:"3 dmg",cost:4},{lab:"4 dmg",cost:5}], fx:"Units in blast take the damage once."},
+      {name:"Concealing",  levels:[{lab:"Yes",cost:1}], fx:"Attacks through the effect suffer −2 to hit."},
+      {name:"Hot",         levels:[{lab:"Yes",cost:2}], fx:"Units in effect gain 2 heat, and at end of their turn."},
+      {name:"Minefield",   levels:[{lab:"2 dmg",cost:1},{lab:"4 dmg",cost:3}], fx:"Mines trigger on entry (Dv 2, 1 HP)."},
+      {name:"Constricting",levels:[{lab:"Yes",cost:2}], fx:"Effect hexes are loose terrain for the duration."},
+      {name:"Static",      levels:[{lab:"Yes",cost:2}], fx:"Creates a static storm (blocks program attacks)."},
+      {name:"Indirect",    levels:[{lab:"Yes",cost:1}], fx:"Allows non-LoS attacks."},
+      {name:"Multi",       levels:[{lab:"Yes",cost:1}], fx:"Targets hexes equal to MP spent on effect size instead of a template."},
+    ]
+  },
+
+  // PROGRAM DESIGNER. Kit base cost: 2E + 1-3 hardpoints. One program type per hardpoint used.
+  program: {
+    baseE:2, ppPerHardpoint:5, maxBonusE:3, kitLimit:6,
+    range:    { labels:["1–3","1–4","1–5","1–6","1–7","1–8"], cost:[0,1,2,3,4,5] },
+    ammo:     { vals:[4,6,8,10],   cost:[0,2,4,6] },
+    duration: { vals:[1,2,3,4,5],  cost:[0,2,3,4,5] },
+    bonus:    { vals:[0,1,2,3,4,5],cost:[0,1,2,3,4,5] },
+    effects: [
+      {name:"Aim Assist / Jam",       cost:2, fx:"Target gains [+/−] 2 to hit with weapon attacks."},
+      {name:"Move Help / Hinder",     cost:2, fx:"Target gains [+/−] 2 movement."},
+      {name:"Radiator Burn / Ice",    cost:2, fx:"Target gains [+/−] 2 heat."},
+      {name:"Threshold Fix / Break",  cost:5, fx:"Target [ignores effects of / rolls on] the threshold table."},
+      {name:"Crit Up / Down",         cost:1, fx:"[Upgrade / downgrade] critical hits made by the target."},
+      {name:"Kit Theft",              cost:7, fx:"Target uses kit equipment with a weapon, program, or missile attack. One-time."},
+      {name:"Overclock / Lag",        cost:6, fx:"Target's next order is a Partial Order [instead of / in addition to] the Mech Order."},
+      {name:"Beacon / Cloak",         cost:3, fx:"Target has [+/−] 1 Dv."},
+      {name:"Ping / Scramble",        cost:3, fx:"Target requires LoS to target / cannot trigger reactions."},
+      {name:"Firewall / Backdoor",    cost:2, fx:"Target has [+/−] 2 system defense against programs."},
+    ]
+  },
+};
+/* ===================== END OF GAME DATA ============================= */
+
+// ------------------------- state ------------------------------------
+function defaultState(){
+  const eq={}; DATA.equipment.forEach(x=>eq[x.name]=0);
+  return {
+    name:"New Mech",
+    frame:{hp:0,w:0,e:0,ha:0,m:0,s:0, hpViaW:0, mViaW:0, mViaE:0, sViaE:0},
+    equipment:eq,
+    weapons:[],      // {name,ha,bw,be,range,rmin,shots,dmg,acc,mods:[]}
+    missileKits:[],  // {name,ha,types:[{name,bw,range,size,ammo,dur,payloads:{}}]}
+    programKits:[],  // {name,ha,types:[{name,be,range,ammo,dur,bonus,effect}]}
+  };
+}
+let state = loadCurrent() || defaultState();
+
+function newWeapon(n){ return {name:"Weapon "+n, ha:1,bw:0,be:0,range:0,rmin:0,shots:0,dmg:0,acc:0,mods:[]}; }
+function newMissileKit(n){ return {name:"Missile Kit "+n, ha:1, types:[newMissileType(1)]}; }
+function newMissileType(n){ return {name:"Missile "+n, bw:0,range:0,size:0,ammo:0,dur:0,payloads:{}}; }
+function newProgramKit(n){ return {name:"Hacking Kit "+n, ha:1, types:[newProgramType(1)]}; }
+function newProgramType(n){ return {name:"Program "+n, be:0,range:0,ammo:0,dur:0,bonus:0,effect:-1}; }
+
+// ------------------------- compute ----------------------------------
+function compute(){
+  const warn=[], F=DATA.frame.stats, f=state.frame;
+  const val=k=>F[k].vals[f[k]];
+  const HP=val("hp"), Wmax=val("w"), Emax=val("e"), Hmax=val("ha"), M=val("m"), S=val("s");
+
+  // Frame FP with alternative payments
+  const hpAltMax=Math.floor(f.hp/2);
+  if(f.hpViaW>hpAltMax) warn.push(`HP: only ${hpAltMax} weight can be applied (2 ranks per weight, ${f.hp} ranks bought).`);
+  const hpAlt=Math.min(f.hpViaW,hpAltMax);
+  const mAlt=f.mViaW+f.mViaE;
+  if(mAlt>f.m) warn.push(`Movement: paying for ${mAlt} ranks with weight/energy but only ${f.m} ranks were bought.`);
+  const sAlt=f.sViaE;
+  if(sAlt>f.s) warn.push(`Systems: paying for ${sAlt} ranks with energy but only ${f.s} ranks were bought.`);
+  const fpHP=Math.max(0,F.hp.fp[f.hp]-2*hpAlt);
+  const fpM =Math.max(0,F.m.fp[f.m]-F.m.perRankFP*Math.min(mAlt,f.m));
+  const fpS =Math.max(0,F.s.fp[f.s]-F.s.perRankFP*Math.min(sAlt,f.s));
+  const fpUsed=fpHP+F.w.fp[f.w]+F.e.fp[f.e]+F.ha.fp[f.ha]+fpM+fpS;
+  if(fpUsed>DATA.frame.fpMax) warn.push(`Frame Points: ${fpUsed} / ${DATA.frame.fpMax} — over the limit.`);
+
+  let wUsed=f.hpViaW+f.mViaW, eUsed=f.mViaE+f.sViaE, sUsed=0, haUsed=0;
+
+  // Equipment
+  for(const eq of DATA.equipment){
+    const n=state.equipment[eq.name]||0;
+    wUsed+=n*eq.w; eUsed+=n*eq.e; sUsed+=n*eq.s;
+  }
+
+  // Weapon kits
+  const WD=DATA.weapon;
+  const weapons=state.weapons.map((wp,i)=>{
+    const mods=WD.modules.filter(m=>wp.mods.includes(m.name));
+    const melee=mods.some(m=>m.melee);
+    const modW=mods.reduce((a,m)=>a+m.w,0), modE=mods.reduce((a,m)=>a+m.e,0),
+          modS=mods.reduce((a,m)=>a+m.s,0), modWP=mods.reduce((a,m)=>a+m.wp,0);
+    const budget=WD.wpPerHardpoint*wp.ha+wp.bw+wp.be;
+    const rangeWP=melee?0:WD.range.cost[wp.range]+WD.rangeMin.cost[wp.rmin];
+    const wpSpent=rangeWP+WD.shots.cost[wp.shots]+WD.damage.cost[wp.dmg]+WD.accuracy.cost[wp.acc]+modWP;
+    if(wpSpent>budget) warn.push(`${wp.name}: ${wpSpent} WP spent, budget is ${budget}.`);
+    const cw=WD.baseW+wp.bw+modW, ce=WD.baseE+wp.be+modE;
+    wUsed+=cw; eUsed+=ce; sUsed+=modS; haUsed+=wp.ha;
+    const rMin=melee?1:Math.max(1,WD.range.mins[wp.range]-WD.rangeMin.vals[wp.rmin]);
+    const rMax=melee?1:WD.range.maxs[wp.range];
+    const dmg=WD.damage.vals[wp.dmg]+(wp.mods.includes("Energetic")?Math.ceil(Emax/2):0);
+    const shots=WD.shots.vals[wp.shots];
+    let shotPen=0; if(shots>=3)shotPen--; if(shots>=5)shotPen--;
+    return {i,wp,mods,melee,budget,wpSpent,cw,ce,cs:modS,rMin,rMax,dmg,shots,shotPen,
+            acc:WD.accuracy.vals[wp.acc]};
+  });
+  if(state.weapons.length>WD.kitLimit) warn.push(`More than ${WD.kitLimit} weapon kits equipped.`);
+
+  // Missile kits
+  const MD=DATA.missile;
+  const missileKits=state.missileKits.map((mk,i)=>{
+    let budget=MD.mpPerHardpoint*mk.ha, spent=0;
+    const types=mk.types.map((t,j)=>{
+      budget+=t.bw;
+      let pl=0; const plList=[];
+      for(const p of MD.payloads){
+        const lv=t.payloads[p.name];
+        if(lv!=null&&lv>=0&&lv<p.levels.length){pl+=p.levels[lv].cost;plList.push(p.name+(p.levels.length>1?" ("+p.levels[lv].lab+")":""));}
+      }
+      const cost=MD.range.cost[t.range]+MD.size.cost[t.size]+MD.ammo.cost[t.ammo]+MD.duration.cost[t.dur]+pl;
+      spent+=cost;
+      const reload=cost-MD.ammo.cost[t.ammo]; // credits: 1 per non-ammo MP
+      return {t,j,cost,reload,plList,ammo:MD.ammo.vals[t.ammo],startAmmo:Math.ceil(MD.ammo.vals[t.ammo]/2)};
+    });
+    if(mk.types.length>mk.ha) warn.push(`${mk.name}: ${mk.types.length} missile types but only ${mk.ha} hardpoint(s) (one type per hardpoint).`);
+    if(spent>budget) warn.push(`${mk.name}: ${spent} MP spent, budget is ${budget}.`);
+    const cw=MD.baseW+mk.types.reduce((a,t)=>a+t.bw,0);
+    wUsed+=cw; haUsed+=mk.ha;
+    return {i,mk,types,budget,spent,cw};
+  });
+  if(state.missileKits.length>MD.kitLimit) warn.push(`More than ${MD.kitLimit} missile kits equipped.`);
+
+  // Program kits
+  const PD=DATA.program;
+  const programKits=state.programKits.map((pk,i)=>{
+    let budget=PD.ppPerHardpoint*pk.ha, spent=0;
+    const types=pk.types.map((t,j)=>{
+      budget+=t.be;
+      const fx=t.effect>=0?PD.effects[t.effect]:null;
+      const cost=PD.range.cost[t.range]+PD.ammo.cost[t.ammo]+PD.duration.cost[t.dur]+PD.bonus.cost[t.bonus]+(fx?fx.cost:0);
+      spent+=cost;
+      const reload=cost-PD.ammo.cost[t.ammo]-PD.range.cost[t.range]; // credits: non-range, non-ammo PP
+      return {t,j,cost,reload,fx,ammo:PD.ammo.vals[t.ammo],startAmmo:Math.ceil(PD.ammo.vals[t.ammo]/2)};
+    });
+    if(pk.types.length>pk.ha) warn.push(`${pk.name}: ${pk.types.length} programs but only ${pk.ha} hardpoint(s) (one program per hardpoint).`);
+    if(spent>budget) warn.push(`${pk.name}: ${spent} PP spent, budget is ${budget}.`);
+    const ce=PD.baseE+pk.types.reduce((a,t)=>a+t.be,0);
+    eUsed+=ce; haUsed+=pk.ha;
+    return {i,pk,types,budget,spent,ce};
+  });
+  if(state.programKits.length>PD.kitLimit) warn.push(`More than ${PD.kitLimit} program kits equipped.`);
+
+  if(wUsed>Wmax) warn.push(`Weight: ${wUsed} used, max is ${Wmax}.`);
+  if(eUsed>Emax) warn.push(`Energy: ${eUsed} used, max is ${Emax}.`);
+  if(sUsed>S)    warn.push(`Systems: ${sUsed} used, max is ${S}.`);
+  if(haUsed>Hmax)warn.push(`Hardpoints: ${haUsed} used, max is ${Hmax}.`);
+
+  // Derived stats
+  const plates=state.equipment["Armored Plates"]||0;
+  const sinks=state.equipment["Heat Sinks"]||0;
+  const overdrive=(state.equipment["Overdrive Engine"]||0)>0;
+  const dv=DATA.frame.baseDv+plates;
+  const heatCap=(overdrive?5:DATA.frame.baseHeatCap)+sinks*Math.ceil(Wmax/2);
+  const slam=Math.ceil(Wmax/2);
+  const credits=DATA.frame.baseCredits+fpUsed*DATA.frame.creditsPerFP;
+
+  return {warn,HP,Wmax,Emax,Hmax,M,S,fpUsed,wUsed,eUsed,sUsed,haUsed,
+          weapons,missileKits,programKits,dv,heatCap,slam,credits,overdrive};
+}
+
+// ------------------------- render helpers ---------------------------
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+function sel(path,labels,cur,costs,unit){
+  const opts=labels.map((l,i)=>{
+    const c=costs?` (${costs[i]} ${unit})`:"";
+    return `<option value="${i}" ${i===cur?"selected":""}>${esc(l)}${c}</option>`;
+  }).join("");
+  return `<select data-path="${path}" data-num="1">${opts}</select>`;
+}
+function numIn(path,cur,max){
+  return `<input type="number" data-path="${path}" data-num="1" min="0" max="${max}" value="${cur}">`;
+}
+function chip(label,used,max,extra){
+  const over=max!=null&&used>max;
+  return `<span class="chip ${over?"over":""}">${label}: <b>${used}${max!=null?" / "+max:""}</b>${extra||""}</span>`;
+}
+
+// ------------------------- render -----------------------------------
+function render(){
+  const c=compute();
+  const F=DATA.frame.stats, f=state.frame;
+  let h="";
+
+  // Header + toolbar
+  h+=`<div class="no-print">
+    <h1>Burning Steel <small>Mech Calculator</small></h1>
+    <div class="toolbar">
+      <label>Mech name <input type="text" data-path="name" value="${esc(state.name)}"></label>
+      <button data-act="save" class="primary">Save build</button>
+      <select id="savedSel">${savedOptions()}</select>
+      <button data-act="load">Load</button>
+      <button data-act="delbuild" class="danger">Delete</button>
+      <button data-act="export">Export JSON</button>
+      <button data-act="import">Import JSON</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <button data-act="print">Print sheet</button>
+      <button data-act="reset" class="danger">New / Reset</button>
+    </div>
+  </div>`;
+
+  // Sticky budget bar
+  h+=`<div class="bar no-print"><div class="wrap" style="padding:0"><div class="chips">
+    ${chip("FP",c.fpUsed,DATA.frame.fpMax)}
+    ${chip("Weight",c.wUsed,c.Wmax)}
+    ${chip("Energy",c.eUsed,c.Emax)}
+    ${chip("Systems",c.sUsed,c.S)}
+    ${chip("Hardpoints",c.haUsed,c.Hmax)}
+    ${chip("Credits",c.credits,null)}
+    ${chip("Dv",c.dv,null)}
+    ${chip("Heat Cap",c.heatCap,null)}
+  </div></div></div>`;
+
+  // Frame
+  h+=`<div class="no-print"><h2>Frame</h2><div class="card">`;
+  for(const k of ["hp","w","e","ha","m","s"]){
+    const st=F[k];
+    h+=`<div class="statrow">
+      <span class="lab">${st.label}</span>
+      ${sel("frame."+k,st.vals,f[k],st.fp,"FP")}
+      <span class="fp">${st.fp[f[k]]} FP</span>`;
+    if(k==="hp") h+=`<span class="alt">ranks paid with weight (2/W): ${numIn("frame.hpViaW",f.hpViaW,5)}</span>`;
+    if(k==="m")  h+=`<span class="alt">ranks via weight: ${numIn("frame.mViaW",f.mViaW,5)} &nbsp; via energy: ${numIn("frame.mViaE",f.mViaE,5)}</span>`;
+    if(k==="s")  h+=`<span class="alt">ranks via energy: ${numIn("frame.sViaE",f.sViaE,6)}</span>`;
+    h+=`</div>`;
+  }
+  h+=`<div class="kv" style="margin-top:8px">Frame cost: <b>${DATA.frame.baseCredits} cr</b> + ${c.fpUsed} FP × ${DATA.frame.creditsPerFP} cr = <b>${c.credits} credits</b>
+    &nbsp;•&nbsp; Slam attack: range 1, 1 shot, −2 acc, <b>${c.slam} dmg</b></div>`;
+  h+=`</div></div>`;
+
+  // Equipment
+  h+=`<div class="no-print"><h2>Equipment</h2><div class="card">`;
+  let lastCat="";
+  for(const eq of DATA.equipment){
+    if(eq.cat!==lastCat){lastCat=eq.cat;h+=`<div class="eqcat">${esc(eq.cat)}</div>`;}
+    const n=state.equipment[eq.name]||0;
+    const cost=[eq.w?eq.w+"W":"",eq.e?eq.e+"E":"",eq.s?eq.s+"S":""].filter(Boolean).join(" ")||"free";
+    h+=`<div class="eqrow">
+      <div class="eqinfo">
+        <div><span class="eqname">${esc(eq.name)}</span><span class="eqcost">${cost} · limit ${eq.limit}</span></div>
+        <div class="eqfx">${esc(eq.fx)}</div>
+      </div>
+      <div class="eqctl"><button data-act="eq" data-name="${esc(eq.name)}" data-d="-1" ${n<=0?"disabled":""}>−</button>
+        <span class="cnt">${n}</span>
+        <button data-act="eq" data-name="${esc(eq.name)}" data-d="1" ${n>=eq.limit?"disabled":""}>+</button></div>
+    </div>`;
+  }
+  h+=`</div></div>`;
+
+  // Weapons
+  const WD=DATA.weapon;
+  h+=`<div class="no-print"><h2>Weapon Kits <button data-act="addw" ${state.weapons.length>=WD.kitLimit?"disabled":""}>+ Add weapon kit</button></h2>`;
+  h+=`<div class="kv" style="margin-bottom:8px">Each kit costs 1W 1E + 1–3 hardpoints. 5 WP per hardpoint; up to 3 extra weight and 3 extra energy each give +1 WP. Optimal range band is ±2 hexes.</div>`;
+  for(const W of c.weapons){
+    const wp=W.wp,i=W.i;
+    h+=`<div class="card kitcard">
+      <div class="row">
+        <input type="text" data-path="weapons.${i}.name" value="${esc(wp.name)}">
+        <label>Hardpoints ${sel(`weapons.${i}.ha`,[1,2,3],wp.ha-1,null)}</label>
+        <label>+Weight (+1 WP ea) ${sel(`weapons.${i}.bw`,[0,1,2,3],wp.bw,null)}</label>
+        <label>+Energy (+1 WP ea) ${sel(`weapons.${i}.be`,[0,1,2,3],wp.be,null)}</label>
+        <span class="budget ${W.wpSpent>W.budget?"over":""}">WP: ${W.wpSpent} / ${W.budget}</span>
+        <button data-act="delw" data-i="${i}" class="danger">Remove</button>
+      </div>
+      <div class="row">
+        <label>Range ${W.melee?"<b>1 (Melee)</b>":sel(`weapons.${i}.range`,WD.range.labels,wp.range,WD.range.cost,"WP")}</label>
+        <label>Range min ${W.melee?"—":sel(`weapons.${i}.rmin`,WD.rangeMin.vals.map(v=>v===0?"±0":"−"+v),wp.rmin,WD.rangeMin.cost,"WP")}</label>
+        <label>Shots ${sel(`weapons.${i}.shots`,WD.shots.vals,wp.shots,WD.shots.cost,"WP")}</label>
+        <label>Damage ${sel(`weapons.${i}.dmg`,WD.damage.vals,wp.dmg,WD.damage.cost,"WP")}</label>
+        <label>Accuracy ${sel(`weapons.${i}.acc`,WD.accuracy.vals.map(v=>"+"+v),wp.acc,WD.accuracy.cost,"WP")}</label>
+      </div>
+      <div class="mods">${WD.modules.map(m=>{
+        const cost=[m.w?m.w+"W":"",m.e?m.e+"E":"",m.s?m.s+"S":"",m.wp?m.wp+"WP":"",m.melee?"Range=1":""].filter(Boolean).join(" ");
+        return `<label><input type="checkbox" data-mod="${esc(m.name)}" data-wi="${i}" ${wp.mods.includes(m.name)?"checked":""}>
+          ${esc(m.name)} <small>(${cost}) — ${esc(m.fx)}</small></label>`;}).join("")}
+      </div>
+      <div class="kv" style="margin-top:8px">Profile: <b>optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax}</b>
+        (band ${Math.max(1,W.rMin-2)}–${W.rMax+2}), <b>${W.shots} shot${W.shots>1?"s":""}</b>${W.shotPen?` (${W.shotPen} to hit)`:""},
+        <b>${W.dmg} dmg</b>, <b>+${W.acc} acc</b> &nbsp;•&nbsp; Cost: ${W.cw}W ${W.ce}E${W.cs?" "+W.cs+"S":""} ${wp.ha}Ha</div>
+    </div>`;
+  }
+  h+=`</div>`;
+
+  // Missile kits
+  const MD=DATA.missile;
+  h+=`<div class="no-print"><h2>Missile Kits <button data-act="addmk" ${state.missileKits.length>=MD.kitLimit?"disabled":""}>+ Add missile kit</button></h2>`;
+  h+=`<div class="kv" style="margin-bottom:8px">Each kit costs 2W + 1–3 hardpoints. 5 MP per hardpoint (pooled across the kit's missiles); one missile type per hardpoint used; up to 3 extra weight per missile gives +1 MP each. Mechs start each match with ½ ammo (rounded up).</div>`;
+  for(const K of c.missileKits){
+    const mk=K.mk,i=K.i;
+    h+=`<div class="card kitcard">
+      <div class="row">
+        <input type="text" data-path="missileKits.${i}.name" value="${esc(mk.name)}">
+        <label>Hardpoints ${sel(`missileKits.${i}.ha`,[1,2,3],mk.ha-1,null)}</label>
+        <span class="budget ${K.spent>K.budget?"over":""}">MP: ${K.spent} / ${K.budget}</span>
+        <span class="kv">Cost: ${K.cw}W ${mk.ha}Ha</span>
+        <button data-act="addmt" data-i="${i}" ${mk.types.length>=mk.ha?"disabled":""}>+ Missile type</button>
+        <button data-act="delmk" data-i="${i}" class="danger">Remove kit</button>
+      </div>`;
+    for(const T of K.types){
+      const t=T.t,j=T.j;
+      h+=`<div class="card" style="margin:8px 0 0">
+        <div class="row">
+          <input type="text" data-path="missileKits.${i}.types.${j}.name" value="${esc(t.name)}">
+          <label>+Weight (+1 MP ea) ${sel(`missileKits.${i}.types.${j}.bw`,[0,1,2,3],t.bw,null)}</label>
+          <label>Range ${sel(`missileKits.${i}.types.${j}.range`,MD.range.labels,t.range,MD.range.cost,"MP")}</label>
+          <label>Effect size ${sel(`missileKits.${i}.types.${j}.size`,MD.size.labels,t.size,MD.size.cost,"MP")}</label>
+          <label>Ammo ${sel(`missileKits.${i}.types.${j}.ammo`,MD.ammo.vals,t.ammo,MD.ammo.cost,"MP")}</label>
+          <label>Duration ${sel(`missileKits.${i}.types.${j}.dur`,MD.duration.vals,t.dur,MD.duration.cost,"MP")}</label>
+          <button data-act="delmt" data-i="${i}" data-j="${j}" class="danger">×</button>
+        </div>
+        <div class="mods">${MD.payloads.map(p=>{
+          const lv=t.payloads[p.name]??-1;
+          const opts=[`<option value="-1" ${lv===-1?"selected":""}>—</option>`]
+            .concat(p.levels.map((L,x)=>`<option value="${x}" ${lv===x?"selected":""}>${esc(L.lab)} (${L.cost} MP)</option>`)).join("");
+          return `<label>${esc(p.name)} <select data-pl="${esc(p.name)}" data-i="${i}" data-j="${j}" data-num="1">${opts}</select>
+            <small>${esc(p.fx)}</small></label>`;}).join("")}
+        </div>
+        <div class="kv" style="margin-top:6px"><b>${T.cost} MP</b> • starts with ${T.startAmmo}/${T.ammo} ammo • reload cost ≈ <b>${T.reload} cr</b> (non-ammo MP)</div>
+      </div>`;
+    }
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+
+  // Program kits
+  const PD=DATA.program;
+  h+=`<div class="no-print"><h2>Hacking Kits <button data-act="addpk" ${state.programKits.length>=PD.kitLimit?"disabled":""}>+ Add hacking kit</button></h2>`;
+  h+=`<div class="kv" style="margin-bottom:8px">Each kit costs 2E + 1–3 hardpoints. 5 PP per hardpoint (pooled); one program per hardpoint used; up to 3 extra energy per program gives +1 PP each. System defense = 3 + Systems. Mechs start with ½ ammo.</div>`;
+  for(const K of c.programKits){
+    const pk=K.pk,i=K.i;
+    h+=`<div class="card kitcard">
+      <div class="row">
+        <input type="text" data-path="programKits.${i}.name" value="${esc(pk.name)}">
+        <label>Hardpoints ${sel(`programKits.${i}.ha`,[1,2,3],pk.ha-1,null)}</label>
+        <span class="budget ${K.spent>K.budget?"over":""}">PP: ${K.spent} / ${K.budget}</span>
+        <span class="kv">Cost: ${K.ce}E ${pk.ha}Ha</span>
+        <button data-act="addpt" data-i="${i}" ${pk.types.length>=pk.ha?"disabled":""}>+ Program</button>
+        <button data-act="delpk" data-i="${i}" class="danger">Remove kit</button>
+      </div>`;
+    for(const T of K.types){
+      const t=T.t,j=T.j;
+      const fxOpts=[`<option value="-1" ${t.effect===-1?"selected":""}>— pick an effect —</option>`]
+        .concat(PD.effects.map((p,x)=>`<option value="${x}" ${t.effect===x?"selected":""}>${esc(p.name)} (${p.cost} PP)</option>`)).join("");
+      h+=`<div class="card" style="margin:8px 0 0">
+        <div class="row">
+          <input type="text" data-path="programKits.${i}.types.${j}.name" value="${esc(t.name)}">
+          <label>+Energy (+1 PP ea) ${sel(`programKits.${i}.types.${j}.be`,[0,1,2,3],t.be,null)}</label>
+          <label>Range ${sel(`programKits.${i}.types.${j}.range`,PD.range.labels,t.range,PD.range.cost,"PP")}</label>
+          <label>Ammo ${sel(`programKits.${i}.types.${j}.ammo`,PD.ammo.vals,t.ammo,PD.ammo.cost,"PP")}</label>
+          <label>Duration ${sel(`programKits.${i}.types.${j}.dur`,PD.duration.vals,t.dur,PD.duration.cost,"PP")}</label>
+          <label>Bonus ${sel(`programKits.${i}.types.${j}.bonus`,PD.bonus.vals.map(v=>"+"+v),t.bonus,PD.bonus.cost,"PP")}</label>
+          <button data-act="delpt" data-i="${i}" data-j="${j}" class="danger">×</button>
+        </div>
+        <div class="row">
+          <label>Effect <select data-path="programKits.${i}.types.${j}.effect" data-num="1">${fxOpts}</select></label>
+          ${T.fx?`<span class="kv">${esc(T.fx.fx)}</span>`:""}
+        </div>
+        <div class="kv" style="margin-top:6px"><b>${T.cost} PP</b> • starts with ${T.startAmmo}/${T.ammo} ammo • reload cost ≈ <b>${T.reload} cr</b> (non-range, non-ammo PP)</div>
+      </div>`;
+    }
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+
+  // Warnings
+  h+=`<div class="no-print"><h2>Validation</h2>`;
+  if(c.warn.length){
+    h+=`<div class="card warnbox"><ul>${c.warn.map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>`;
+  } else {
+    h+=`<div class="card"><span class="okmsg">✔ Build is legal — no problems found.</span></div>`;
+  }
+  h+=`</div>`;
+
+  // Printable summary
+  h+=renderSummary(c);
+
+  // Help
+  h+=`<details class="help no-print"><summary>How to tweak the game data (for the game designer)</summary>
+    <p>Open <code>mech_calculator_v2.html</code> in any text editor and search for <code>GAME DATA</code>.
+    Every table from the rulebook is there as plain lists: frame stat costs, equipment,
+    weapon modules, missile payloads, program effects. Change a number, add a copied line,
+    or delete a line — then save and refresh the browser. The <code>vals</code> and
+    <code>fp</code>/<code>cost</code> arrays pair up column-for-column, so keep them the
+    same length. If the page comes up blank after an edit, a comma or bracket went
+    missing — undo the last change.</p>
+    <p>Interpretations used (change the code if you rule differently): missile/program
+    points are pooled across a kit's hardpoints; Melee waives range WP costs; Heat Sinks
+    and slam damage use weight <i>maximum</i>, rounded up.</p>
+  </details>`;
+
+  document.getElementById("app").innerHTML=h;
+}
+
+function renderSummary(c){
+  const f=state.frame;
+  let s=`<div id="summary"><h2 style="margin-top:0">${esc(state.name)}</h2>
+    <div class="kv">
+      <b>HP ${c.HP}</b> &nbsp; <b>Dv ${c.dv}</b> &nbsp; <b>M ${c.M}</b> &nbsp; <b>S ${c.S}</b> &nbsp;
+      <b>Heat Cap ${c.heatCap}</b>${c.overdrive?" (Overdrive)":""} &nbsp; W ${c.wUsed}/${c.Wmax} &nbsp; E ${c.eUsed}/${c.Emax} &nbsp;
+      Ha ${c.haUsed}/${c.Hmax} &nbsp; Sys ${c.sUsed}/${c.S}<br>
+      <b>${c.fpUsed} FP</b> • <b>${c.credits} credits</b> (frame ${DATA.frame.baseCredits} + FP) •
+      Slam: rng 1, 1 shot, −2 acc, ${c.slam} dmg • System defense ${3+c.S}
+    </div>`;
+  const eqList=DATA.equipment.filter(e=>(state.equipment[e.name]||0)>0);
+  if(eqList.length){
+    s+=`<h3 style="margin-top:12px">Equipment</h3><ul>`;
+    for(const e of eqList){const n=state.equipment[e.name];s+=`<li><b>${esc(e.name)}${n>1?" ×"+n:""}</b> — ${esc(e.fx)}</li>`;}
+    s+=`</ul>`;
+  }
+  if(c.weapons.length){
+    s+=`<h3>Weapons</h3><ul>`;
+    for(const W of c.weapons){
+      s+=`<li><b>${esc(W.wp.name)}</b> (${W.wp.ha}Ha): optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax}
+        (band ${Math.max(1,W.rMin-2)}–${W.rMax+2}), ${W.shots} shot${W.shots>1?"s":""}${W.shotPen?" ("+W.shotPen+" to hit)":""},
+        ${W.dmg} dmg, +${W.acc} acc${W.mods.length?" — "+W.mods.map(m=>m.name).join(", "):""}</li>`;
+    }
+    s+=`</ul>`;
+  }
+  if(c.missileKits.length){
+    s+=`<h3>Missiles</h3><ul>`;
+    for(const K of c.missileKits) for(const T of K.types){
+      s+=`<li><b>${esc(T.t.name)}</b> (${esc(K.mk.name)}): range ${DATA.missile.range.labels[T.t.range]},
+        ${DATA.missile.size.labels[T.t.size]}, ammo ${T.startAmmo}/${T.ammo}, duration ${DATA.missile.duration.vals[T.t.dur]}
+        — ${T.plList.join(", ")||"no payload"} (reload ${T.reload} cr)</li>`;
+    }
+    s+=`</ul>`;
+  }
+  if(c.programKits.length){
+    s+=`<h3>Programs</h3><ul>`;
+    for(const K of c.programKits) for(const T of K.types){
+      s+=`<li><b>${esc(T.t.name)}</b> (${esc(K.pk.name)}): range ${DATA.program.range.labels[T.t.range]},
+        ammo ${T.startAmmo}/${T.ammo}, duration ${DATA.program.duration.vals[T.t.dur]}, +${DATA.program.bonus.vals[T.t.bonus]} bonus
+        — ${T.fx?esc(T.fx.name)+": "+esc(T.fx.fx):"no effect chosen"} (reload ${T.reload} cr)</li>`;
+    }
+    s+=`</ul>`;
+  }
+  s+=`</div>`;
+  return s;
+}
+
+// ------------------------- persistence ------------------------------
+function saveCurrent(){ try{localStorage.setItem("bs_current",JSON.stringify(state));}catch(e){} }
+function loadCurrent(){
+  try{const s=localStorage.getItem("bs_current");return s?migrate(JSON.parse(s)):null;}catch(e){return null;}
+}
+function builds(){ try{return JSON.parse(localStorage.getItem("bs_builds")||"{}");}catch(e){return{};} }
+function savedOptions(){
+  const b=builds();
+  const names=Object.keys(b).sort();
+  return `<option value="">— saved builds —</option>`+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
+}
+// Fill in any fields missing from older saves / hand-edited JSON.
+function migrate(s){
+  const d=defaultState();
+  const out=Object.assign(d,s);
+  out.frame=Object.assign(d.frame,s.frame||{});
+  out.equipment=Object.assign(d.equipment,s.equipment||{});
+  out.weapons=(s.weapons||[]).map((w,i)=>Object.assign(newWeapon(i+1),w));
+  out.missileKits=(s.missileKits||[]).map((k,i)=>{const nk=Object.assign(newMissileKit(i+1),k);
+    nk.types=(k.types||[]).map((t,j)=>Object.assign(newMissileType(j+1),t));return nk;});
+  out.programKits=(s.programKits||[]).map((k,i)=>{const nk=Object.assign(newProgramKit(i+1),k);
+    nk.types=(k.types||[]).map((t,j)=>Object.assign(newProgramType(j+1),t));return nk;});
+  return out;
+}
+
+// ------------------------- events -----------------------------------
+function setPath(path,val){
+  const parts=path.split(".");
+  let o=state;
+  for(let i=0;i<parts.length-1;i++) o=o[parts[i]];
+  o[parts[parts.length-1]]=val;
+}
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.mod!==undefined){
+    const w=state.weapons[+t.dataset.wi];
+    if(t.checked){if(!w.mods.includes(t.dataset.mod))w.mods.push(t.dataset.mod);}
+    else w.mods=w.mods.filter(m=>m!==t.dataset.mod);
+  } else if(t.dataset.pl!==undefined){
+    state.missileKits[+t.dataset.i].types[+t.dataset.j].payloads[t.dataset.pl]=parseInt(t.value,10);
+  } else if(t.dataset.path!==undefined){
+    let v=t.value;
+    if(t.dataset.num!==undefined){v=parseInt(v,10);if(isNaN(v))v=0;}
+    // Hardpoint selects are 0-indexed options for values 1-3.
+    if(/\.(ha)$/.test(t.dataset.path)&&t.tagName==="SELECT"&&!t.dataset.path.startsWith("frame")) v=v+1;
+    setPath(t.dataset.path,v);
+  } else return;
+  saveCurrent(); render();
+});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b||!b.dataset.act) return;
+  const act=b.dataset.act, i=+b.dataset.i, j=+b.dataset.j;
+  switch(act){
+    case "eq":{
+      const eq=DATA.equipment.find(x=>x.name===b.dataset.name);
+      const n=(state.equipment[eq.name]||0)+(+b.dataset.d);
+      state.equipment[eq.name]=Math.max(0,Math.min(eq.limit,n));
+      break;}
+    case "addw": state.weapons.push(newWeapon(state.weapons.length+1)); break;
+    case "delw": state.weapons.splice(i,1); break;
+    case "addmk": state.missileKits.push(newMissileKit(state.missileKits.length+1)); break;
+    case "delmk": state.missileKits.splice(i,1); break;
+    case "addmt":{const k=state.missileKits[i];k.types.push(newMissileType(k.types.length+1));break;}
+    case "delmt": state.missileKits[i].types.splice(j,1); break;
+    case "addpk": state.programKits.push(newProgramKit(state.programKits.length+1)); break;
+    case "delpk": state.programKits.splice(i,1); break;
+    case "addpt":{const k=state.programKits[i];k.types.push(newProgramType(k.types.length+1));break;}
+    case "delpt": state.programKits[i].types.splice(j,1); break;
+    case "save":{
+      const b2=builds(); b2[state.name||"Unnamed"]=state;
+      localStorage.setItem("bs_builds",JSON.stringify(b2));
+      break;}
+    case "load":{
+      const sel=document.getElementById("savedSel").value;
+      const b2=builds();
+      if(sel&&b2[sel]) state=migrate(b2[sel]);
+      break;}
+    case "delbuild":{
+      const sel=document.getElementById("savedSel").value;
+      if(sel){const b2=builds();delete b2[sel];localStorage.setItem("bs_builds",JSON.stringify(b2));}
+      break;}
+    case "export":{
+      const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=(state.name||"mech").replace(/[^\w\- ]+/g,"")+".json";
+      a.click(); URL.revokeObjectURL(a.href);
+      return;} // no re-render needed
+    case "import": document.getElementById("importFile").click(); return;
+    case "print": window.print(); return;
+    case "reset": state=defaultState(); break;
+    default: return;
+  }
+  saveCurrent(); render();
+});
+document.addEventListener("change",e=>{
+  if(e.target.id==="importFile"&&e.target.files[0]){
+    const r=new FileReader();
+    r.onload=()=>{ try{state=migrate(JSON.parse(r.result));saveCurrent();render();}
+      catch(err){alert("Could not read that file: "+err.message);} };
+    r.readAsText(e.target.files[0]);
+  }
+});
+
+render();
+</script>
+</body>
+</html>

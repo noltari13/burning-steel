@@ -317,6 +317,53 @@ const DATA = {
 };
 /* ===================== END OF GAME DATA ============================= */
 
+/* =====================================================================
+   RULE VARIANTS — experimental rulesets to playtest.
+   ---------------------------------------------------------------------
+   Pick the active variant with the "Rules variant" dropdown at the top
+   of the page. The choice is remembered, stamped on exports and printed
+   sheets, and every build recomputes instantly when you switch.
+
+   To try a NEW idea: copy the "derived" block, rename the key and
+   label, and edit. A variant can have:
+   - removeEquipment: ["name", ...]  items that don't exist under it
+     (equipped copies raise a validation warning instead of counting)
+   - derive(d): runs at the end of compute(). Adjust the finished mech:
+     d.HP, d.dv, d.heatCap, d.cooling (heat removed per COOLING),
+     d.hitBonus (to-hit bonus for weapon attacks), d.slam, d.M ...
+     Push a line onto d.notes for each change so the sheet explains
+     itself at the table.
+   ===================================================================== */
+const VARIANTS = {
+  core: {
+    label: "Core rules",
+    blurb: "The rulebook as written.",
+  },
+  derived: {
+    label: "Derived stats",
+    blurb: "Frame ranks feed HP, Dv, heat capacity, cooling and to-hit.",
+    removeEquipment: ["Armored Plates"],  // Dv now comes from weight instead
+    derive(d){
+      const hpB  = d.Wmax;                  // +1 HP per weight rank (30+10 = 40 max)
+      const dvB  = Math.floor(d.Wmax/5);    // every 5 weight ranks  -> +1 Dv
+      const hcB  = Math.floor(d.Emax/2);    // every 2 energy ranks  -> +1 heat capacity
+      const clB  = Math.floor(d.Emax/5);    // every 5 energy ranks  -> +1 heat per COOLING
+      const hitB = Math.floor(d.S/4);       // every 4 systems ranks -> +1 to hit (weapons)
+      d.HP+=hpB; d.dv+=dvB; d.heatCap+=hcB; d.cooling+=clB; d.hitBonus+=hitB;
+      if(hpB)  d.notes.push(`HP ${d.HP} = ${d.HP-hpB} + ${hpB} (1 per weight rank)`);
+      if(dvB)  d.notes.push(`Dv +${dvB} (weight ${d.Wmax} ÷ 5)`);
+      if(hcB)  d.notes.push(`heat cap +${hcB} (energy ${d.Emax} ÷ 2)`);
+      if(clB)  d.notes.push(`COOLING removes ${d.cooling} (+${clB} from energy ${d.Emax} ÷ 5)`);
+      if(hitB) d.notes.push(`weapon attacks +${hitB} to hit (systems ${d.S} ÷ 4)`);
+    }
+  },
+};
+/* =================== END OF RULE VARIANTS =========================== */
+
+let variantKey=(function(){try{const v=localStorage.getItem("bs_variant");return VARIANTS[v]?v:"core";}catch(e){return "core";}})();
+const variant=()=>VARIANTS[variantKey]||VARIANTS.core;
+const removedEquipment=()=>new Set(variant().removeEquipment||[]);
+
 // ------------------------- state ------------------------------------
 function defaultState(){
   const eq={}; DATA.equipment.forEach(x=>eq[x.name]=0);
@@ -386,9 +433,12 @@ function compute(mech){
 
   let wUsed=f.hpViaW+f.mViaW, eUsed=f.mViaE+f.sViaE, sUsed=0, haUsed=0;
 
-  // Equipment
+  // Equipment (items removed by the active rules variant cost nothing
+  // and do nothing — they just raise a warning if still equipped)
+  const rmEq=removedEquipment();
   for(const eq of DATA.equipment){
     const n=mech.equipment[eq.name]||0;
+    if(rmEq.has(eq.name)){ if(n) warn.push(`${eq.name} does not exist under the "${variant().label}" variant — remove it.`); continue; }
     wUsed+=n*eq.w; eUsed+=n*eq.e; sUsed+=n*eq.s;
   }
 
@@ -464,17 +514,23 @@ function compute(mech){
   if(sUsed>S)    warn.push(`Systems: ${sUsed} used, max is ${S}.`);
   if(haUsed>Hmax)warn.push(`Hardpoints: ${haUsed} used, max is ${Hmax}.`);
 
-  // Derived stats
-  const plates=mech.equipment["Armored Plates"]||0;
-  const sinks=mech.equipment["Heat Sinks"]||0;
-  const overdrive=(mech.equipment["Overdrive Engine"]||0)>0;
+  // Derived stats (core rules), then the active variant's derive() hook
+  const eqN=name=>rmEq.has(name)?0:(mech.equipment[name]||0);
+  const plates=eqN("Armored Plates");
+  const sinks=eqN("Heat Sinks");
+  const radiators=eqN("Radiator");
+  const overdrive=eqN("Overdrive Engine")>0;
   const dv=DATA.frame.baseDv+plates;
   const heatCap=(overdrive?5:DATA.frame.baseHeatCap)+sinks*Math.ceil(Wmax/2);
   const slam=Math.ceil(Wmax/2);
+  const cooling=2+radiators;   // heat removed per COOLING action
   const credits=DATA.frame.baseCredits+fpUsed*DATA.frame.creditsPerFP;
 
-  return {warn,HP,Wmax,Emax,Hmax,M,S,fpUsed,wUsed,eUsed,sUsed,haUsed,
-          weapons,missileKits,programKits,dv,heatCap,slam,credits,overdrive};
+  const d={warn,HP,Wmax,Emax,Hmax,M,S,fpUsed,wUsed,eUsed,sUsed,haUsed,
+          weapons,missileKits,programKits,dv,heatCap,slam,cooling,
+          hitBonus:0,notes:[],credits,overdrive};
+  if(variant().derive) variant().derive(d);
+  return d;
 }
 
 // ------------------------- render helpers ---------------------------
@@ -575,6 +631,11 @@ function render(){
     <div class="modebar">
       <button data-act="mode" data-m="single" class="${mode==="single"?"on":""}">Single Mech</button>
       <button data-act="mode" data-m="warband" class="${mode==="warband"?"on":""}">Warband</button>
+      <label style="margin-left:12px">Rules variant
+        <select id="variantSel">${Object.keys(VARIANTS).map(k=>
+          `<option value="${k}" ${k===variantKey?"selected":""}>${esc(VARIANTS[k].label)}</option>`).join("")}</select>
+      </label>
+      <span class="kv">${esc(variant().blurb||"")}</span>
     </div>`;
 
   // Warband roster panel
@@ -613,6 +674,8 @@ function render(){
     ${chip("Credits",c.credits,null)}
     ${chip("Dv",c.dv,null)}
     ${chip("Heat Cap",c.heatCap,null)}
+    ${chip("Cooling",c.cooling,null)}
+    ${c.hitBonus?chip("To hit","+"+c.hitBonus,null):""}
   </div></div></div>`;
 
   // Frame
@@ -630,23 +693,27 @@ function render(){
   }
   h+=`<div class="kv" style="margin-top:8px">Frame cost: <b>${DATA.frame.baseCredits} cr</b> + ${c.fpUsed} FP × ${DATA.frame.creditsPerFP} cr = <b>${c.credits} credits</b>
     &nbsp;•&nbsp; Slam attack: range 1, 1 shot, −2 acc, <b>${c.slam} dmg</b></div>`;
+  if(c.notes.length) h+=`<div class="kv" style="margin-top:4px"><b>${esc(variant().label)}:</b> ${c.notes.map(esc).join(" • ")}</div>`;
   h+=`</div></div>`;
 
   // Equipment
   h+=`<div class="no-print"><h2>Equipment</h2><div class="card">`;
   let lastCat="";
+  const rmEq=removedEquipment();
   for(const eq of DATA.equipment){
-    if(eq.cat!==lastCat){lastCat=eq.cat;h+=`<div class="eqcat">${esc(eq.cat)}</div>`;}
     const n=state.equipment[eq.name]||0;
+    const removed=rmEq.has(eq.name);
+    if(removed&&n<=0) continue;   // hidden under this variant (still shown if equipped, so it can be removed)
+    if(eq.cat!==lastCat){lastCat=eq.cat;h+=`<div class="eqcat">${esc(eq.cat)}</div>`;}
     const cost=[eq.w?eq.w+"W":"",eq.e?eq.e+"E":"",eq.s?eq.s+"S":""].filter(Boolean).join(" ")||"free";
     h+=`<div class="eqrow">
       <div class="eqinfo">
-        <div><span class="eqname">${esc(eq.name)}</span><span class="eqcost">${cost} · limit ${eq.limit}</span></div>
+        <div><span class="eqname">${esc(eq.name)}</span><span class="eqcost">${cost} · limit ${eq.limit}${removed?` · <b>not in the ${esc(variant().label)} variant</b>`:""}</span></div>
         <div class="eqfx">${esc(eq.fx)}</div>
       </div>
       <div class="eqctl"><button data-act="eq" data-name="${esc(eq.name)}" data-d="-1" ${n<=0?"disabled":""}>−</button>
         <span class="cnt">${n}</span>
-        <button data-act="eq" data-name="${esc(eq.name)}" data-d="1" ${n>=eq.limit?"disabled":""}>+</button></div>
+        <button data-act="eq" data-name="${esc(eq.name)}" data-d="1" ${removed||n>=eq.limit?"disabled":""}>+</button></div>
     </div>`;
   }
   h+=`</div></div>`;
@@ -810,7 +877,7 @@ function render(){
   if(mode==="warband"){
     const T=warbandTotals();
     h+=`<div class="sheet"><h2 style="margin-top:0">${esc(warband.name)}</h2>
-      <div class="kv"><b>${T.credits} / ${warband.budget} credits</b> • ${warband.mechs.length} mech${warband.mechs.length>1?"s":""} • ${T.fp} FP
+      <div class="kv"><b>${T.credits} / ${warband.budget} credits</b> • ${warband.mechs.length} mech${warband.mechs.length>1?"s":""} • ${T.fp} FP${variantKey!=="core"?` • Rules: ${esc(variant().label)}`:""}
       ${T.credits>warband.budget?`<span class="warnline"> • OVER BUDGET by ${T.credits-warband.budget} credits</span>`:""}</div>
       <ul>${T.scored.map(x=>`<li><b>${esc(x.m.name||"Unnamed")}</b> — ${x.c.credits} cr, ${x.c.fpUsed} FP, HP ${x.c.HP}, Dv ${x.c.dv}, M ${x.c.M}${x.c.warn.length?` <span class="warnline">(illegal)</span>`:""}</li>`).join("")}</ul>
     </div>`;
@@ -846,6 +913,12 @@ function render(){
     <p>Interpretations used (change the code if you rule differently): missile/program
     points are pooled across a kit's hardpoints; Melee waives range WP costs; Heat Sinks
     and slam damage use weight <i>maximum</i>, rounded up.</p>
+    <p><b>Rule variants:</b> right below the game data is a <code>RULE VARIANTS</code>
+    block. Each variant is a small named object — it can remove equipment and adjust the
+    finished mech's derived numbers (HP, Dv, heat capacity, cooling, to-hit). Copy the
+    <code>derived</code> block, rename it, edit, save, refresh: it appears in the
+    "Rules variant" dropdown at the top. The active variant is stamped on exports and
+    printed sheets, so playtest tables always know which rules a sheet was built under.</p>
   </details>`;
 
   document.getElementById("app").innerHTML=h;
@@ -859,8 +932,10 @@ function renderSummary(c,mech){
       <b>Heat Cap ${c.heatCap}</b>${c.overdrive?" (Overdrive)":""} &nbsp; W ${c.wUsed}/${c.Wmax} &nbsp; E ${c.eUsed}/${c.Emax} &nbsp;
       Ha ${c.haUsed}/${c.Hmax} &nbsp; Sys ${c.sUsed}/${c.S}<br>
       <b>${c.fpUsed} FP</b> • <b>${c.credits} credits</b> (frame ${DATA.frame.baseCredits} + FP) •
-      Slam: rng 1, 1 shot, −2 acc, ${c.slam} dmg • System defense ${3+c.S}
+      Slam: rng 1, 1 shot, −2 acc, ${c.slam} dmg • System defense ${3+c.S} •
+      COOLING removes ${c.cooling}${c.hitBonus?` • Weapon attacks +${c.hitBonus} to hit`:""}
     </div>`;
+  if(variantKey!=="core") s+=`<div class="kv" style="margin-top:4px"><b>Rules: ${esc(variant().label)}</b>${c.notes.length?" — "+c.notes.map(esc).join(" • "):""}</div>`;
   const eqList=DATA.equipment.filter(e=>(mech.equipment[e.name]||0)>0);
   if(eqList.length){
     s+=`<h3 style="margin-top:12px">Equipment</h3><ul>`;
@@ -906,6 +981,7 @@ function saveCurrent(){
     localStorage.setItem("bs_current",JSON.stringify(soloState));
     localStorage.setItem("bs_warband_current",JSON.stringify(warband));
     localStorage.setItem("bs_mode",mode);
+    localStorage.setItem("bs_variant",variantKey);
   }catch(e){}
 }
 function loadCurrent(){
@@ -933,6 +1009,7 @@ function migrateWarband(w){
   });
   if(!out.mechs.length){const m=defaultState();m.name="Mech 1";out.mechs=[m];}
   out.active=Math.max(0,Math.min(out.mechs.length-1,parseInt(out.active,10)||0));
+  delete out.variant;
   return out;
 }
 function builds(){ try{return JSON.parse(localStorage.getItem("bs_builds")||"{}");}catch(e){return{};} }
@@ -952,8 +1029,11 @@ function migrate(s){
     nk.types=(k.types||[]).map((t,j)=>Object.assign(newMissileType(j+1),t));return nk;});
   out.programKits=(s.programKits||[]).map((k,i)=>{const nk=Object.assign(newProgramKit(i+1),k);
     nk.types=(k.types||[]).map((t,j)=>Object.assign(newProgramType(j+1),t));return nk;});
+  delete out.variant;   // rules-variant stamp on exports lives outside the mech
   return out;
 }
+// If an imported file was built under a known rules variant, switch to it.
+function adoptVariant(j){ if(j&&j.variant&&VARIANTS[j.variant]) variantKey=j.variant; }
 
 // Merge a backup file into the saved lists. Never touches the mech being edited —
 // anything the backup had "in progress" is filed under its own name instead.
@@ -1002,6 +1082,8 @@ document.addEventListener("change",e=>{
     else w.mods=w.mods.filter(m=>m!==t.dataset.mod);
   } else if(t.dataset.pl!==undefined){
     state.missileKits[+t.dataset.i].types[+t.dataset.j].payloads[t.dataset.pl]=parseInt(t.value,10);
+  } else if(t.id==="variantSel"){
+    variantKey=VARIANTS[t.value]?t.value:"core";
   } else if(t.dataset.wb!==undefined){
     if(t.dataset.wb==="budget"){
       let v=parseInt(t.value,10); if(isNaN(v)||v<0) v=0;
@@ -1097,7 +1179,7 @@ document.addEventListener("click",e=>{
       if(s2){const all=warbands();delete all[s2];localStorage.setItem("bs_warbands",JSON.stringify(all));}
       break;}
     case "wbexport":{
-      const blob=new Blob([JSON.stringify(warband,null,2)],{type:"application/json"});
+      const blob=new Blob([JSON.stringify(Object.assign({},warband,{variant:variantKey}),null,2)],{type:"application/json"});
       const a=document.createElement("a");
       a.href=URL.createObjectURL(blob);
       a.download=(warband.name||"warband").replace(/[^\w\- ]+/g,"")+".warband.json";
@@ -1136,7 +1218,7 @@ document.addEventListener("click",e=>{
       if(sel){const b2=builds();delete b2[sel];localStorage.setItem("bs_builds",JSON.stringify(b2));}
       break;}
     case "export":{
-      const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+      const blob=new Blob([JSON.stringify(Object.assign({},state,{variant:variantKey}),null,2)],{type:"application/json"});
       const a=document.createElement("a");
       a.href=URL.createObjectURL(blob);
       a.download=(state.name||"mech").replace(/[^\w\- ]+/g,"")+".json";
@@ -1155,7 +1237,7 @@ document.addEventListener("click",e=>{
 document.addEventListener("change",e=>{
   if(e.target.id==="importFile"&&e.target.files[0]){
     const r=new FileReader();
-    r.onload=()=>{ try{replaceState(migrate(JSON.parse(r.result)));saveCurrent();render();}
+    r.onload=()=>{ try{const j=JSON.parse(r.result);adoptVariant(j);replaceState(migrate(j));saveCurrent();render();}
       catch(err){alert("Could not read that file: "+err.message);} };
     r.readAsText(e.target.files[0]);
     e.target.value="";
@@ -1171,6 +1253,7 @@ document.addEventListener("change",e=>{
     const r=new FileReader();
     r.onload=()=>{ try{
         const j=JSON.parse(r.result);
+        adoptVariant(j);
         // Accept either a warband file or a single mech export.
         warband = j&&Array.isArray(j.mechs) ? migrateWarband(j)
                 : migrateWarband({name:j.name||"Imported Warband",budget:warband.budget,mechs:[j],active:0});

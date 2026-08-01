@@ -32,4 +32,13 @@ All game numbers live in one block near the top of `index.html` — search for
 effects are plain lists; edit a value, save, refresh. Instructions are commented
 inline.
 
+**Rule variants** — right below the game data, search for `RULE VARIANTS`. Each
+variant is a small block that can remove equipment and adjust derived stats
+(HP, Dv, heat capacity, cooling, to-hit). A "Rules variant" dropdown at the top
+of the page switches the whole builder between rulesets instantly; the choice is
+stamped on exports and printed sheets. Ships with **Derived stats**: +1 HP per
+weight rank, +1 Dv per 5 weight (Armored Plates removed), +1 heat cap per
+2 energy, +1 COOLING per 5 energy, +1 to hit per 4 systems. Copy the block to
+try the next idea.
+
 `mech_calculator_v2.html` is the earlier single-mech-only version, kept for reference.

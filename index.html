@@ -8,14 +8,14 @@
   BURNING STEEL — MECH & WARBAND BUILDER
   ======================================
   A single-file mech builder for the Revised Burning Steel rules, plus a
-  Warband mode for building a whole team against a shared FP budget
-  (200 FP is standard).
+  Warband mode for building a whole team against a shared credit budget
+  (200 credits small / 400 medium / 800 large).
   Open this file in any web browser. No internet needed.
 
   This is mech_calculator_v2.html with two additions:
     1. Duplicate buttons on weapon kits, missile kits/types, and
        hacking kits/programs (and on whole mechs in warband mode).
-    2. Warband mode — a roster of mechs sharing a total FP budget,
+    2. Warband mode — a roster of mechs sharing a total credit budget,
        saved/loaded/exported as one team.
 
   WANT TO TWEAK THE GAME NUMBERS?
@@ -329,8 +329,8 @@ function defaultState(){
     programKits:[],  // {name,ha,types:[{name,be,range,ammo,dur,bonus,effect}]}
   };
 }
-// A warband is a roster of mechs sharing one Frame Point budget.
-// 200 FP is the standard team size.
+// A warband is a roster of mechs sharing one credit budget.
+// Standard game sizes: 200 credits (small), 400 (medium), 800 (large).
 function defaultWarband(){
   const m=defaultState(); m.name="Mech 1";
   return { name:"New Warband", budget:200, mechs:[m], active:0 };
@@ -507,30 +507,31 @@ function warbandTotals(){
 
 function renderRoster(){
   const T=warbandTotals();
-  const over=T.fp>warband.budget;
+  const over=T.credits>warband.budget;
   let h=`<h2>Warband <button data-act="addmech">+ Add mech</button></h2><div class="card">
     <div class="toolbar" style="margin-top:0">
       <label>Warband name <input type="text" data-wb="name" value="${esc(warband.name)}"></label>
-      <label>Total FP budget <input type="number" data-wb="budget" min="0" max="9999" step="10" value="${warband.budget}" style="width:80px"></label>
+      <label>Credit budget <input type="number" data-wb="budget" min="0" max="9999" step="10" value="${warband.budget}" style="width:80px"></label>
+      <span class="kv">200 small • 400 medium • 800 large</span>
     </div>
     <div class="chips" style="margin:4px 0 10px">
-      ${chip("Warband FP",T.fp,warband.budget)}
-      ${chip("FP remaining",Math.max(0,warband.budget-T.fp),null)}
+      ${chip("Warband credits",T.credits,warband.budget)}
+      ${chip("Credits remaining",Math.max(0,warband.budget-T.credits),null)}
       ${chip("Mechs",warband.mechs.length,null)}
-      ${chip("Credits",T.credits,null)}
+      ${chip("Total FP",T.fp,null)}
       <span class="chip ${T.illegal?"over":""}">${T.illegal?`<b>${T.illegal} illegal build${T.illegal>1?"s":""}</b>`:`<b class="rok">all builds legal</b>`}</span>
     </div>`;
-  if(over) h+=`<div class="kv" style="color:var(--bad);margin-bottom:8px">Over budget by ${T.fp-warband.budget} FP.</div>`;
+  if(over) h+=`<div class="kv" style="color:var(--bad);margin-bottom:8px">Over budget by ${T.credits-warband.budget} credits.</div>`;
 
   T.scored.forEach((x,i)=>{
     const c=x.c, bad=c.warn.length>0;
     h+=`<div class="rosterrow ${i===warband.active?"active":""}">
       <span class="rhead">
         <span class="rname">${i===warband.active?"▶ ":""}${esc(x.m.name||"Unnamed")}</span>
-        <span class="rfp ${bad?"rbad":"rok"}">${c.fpUsed} FP</span>
+        <span class="rfp ${bad?"rbad":"rok"}">${c.credits} cr</span>
       </span>
       <span class="rstat">
-        <span>${c.credits} cr</span><span>HP ${c.HP}</span><span>Dv ${c.dv}</span><span>M ${c.M}</span>
+        <span>${c.fpUsed} FP</span><span>HP ${c.HP}</span><span>Dv ${c.dv}</span><span>M ${c.M}</span>
         <span${c.wUsed>c.Wmax?' class="rbad"':""}>W ${c.wUsed}/${c.Wmax}</span>
         <span${c.eUsed>c.Emax?' class="rbad"':""}>E ${c.eUsed}/${c.Emax}</span>
         <span${c.haUsed>c.Hmax?' class="rbad"':""}>Ha ${c.haUsed}/${c.Hmax}</span>
@@ -601,7 +602,7 @@ function render(){
 
   // Sticky budget bar
   const wbChip = mode==="warband"
-    ? chip("Warband FP",warbandTotals().fp,warband.budget) : "";
+    ? chip("Warband cr",warbandTotals().credits,warband.budget) : "";
   h+=`<div class="bar no-print"><div class="wrap" style="padding:0"><div class="chips">
     ${wbChip}
     ${chip("FP",c.fpUsed,DATA.frame.fpMax)}
@@ -809,9 +810,9 @@ function render(){
   if(mode==="warband"){
     const T=warbandTotals();
     h+=`<div class="sheet"><h2 style="margin-top:0">${esc(warband.name)}</h2>
-      <div class="kv"><b>${T.fp} / ${warband.budget} FP</b> • ${warband.mechs.length} mech${warband.mechs.length>1?"s":""} • ${T.credits} credits
-      ${T.fp>warband.budget?`<span class="warnline"> • OVER BUDGET by ${T.fp-warband.budget} FP</span>`:""}</div>
-      <ul>${T.scored.map(x=>`<li><b>${esc(x.m.name||"Unnamed")}</b> — ${x.c.fpUsed} FP, ${x.c.credits} cr, HP ${x.c.HP}, Dv ${x.c.dv}, M ${x.c.M}${x.c.warn.length?` <span class="warnline">(illegal)</span>`:""}</li>`).join("")}</ul>
+      <div class="kv"><b>${T.credits} / ${warband.budget} credits</b> • ${warband.mechs.length} mech${warband.mechs.length>1?"s":""} • ${T.fp} FP
+      ${T.credits>warband.budget?`<span class="warnline"> • OVER BUDGET by ${T.credits-warband.budget} credits</span>`:""}</div>
+      <ul>${T.scored.map(x=>`<li><b>${esc(x.m.name||"Unnamed")}</b> — ${x.c.credits} cr, ${x.c.fpUsed} FP, HP ${x.c.HP}, Dv ${x.c.dv}, M ${x.c.M}${x.c.warn.length?` <span class="warnline">(illegal)</span>`:""}</li>`).join("")}</ul>
     </div>`;
     T.scored.forEach(x=>{ h+=renderSummary(x.c,x.m); });
   } else {
@@ -820,10 +821,10 @@ function render(){
 
   // Help
   h+=`<details class="help no-print"><summary>Warband mode — how it works</summary>
-    <p>Switch to <b>Warband</b> at the top. Set a total Frame Point budget (200 FP is
-    standard) and add mechs to the roster. Each roster row shows that mech's FP cost,
-    credits and whether its build is legal; the bar at the top tracks the whole team
-    against the budget. Click <b>Edit</b> on a row to build that mech with the normal
+    <p>Switch to <b>Warband</b> at the top. Set a total credit budget — 200 credits is
+    a small game, 400 medium, 800 large — and add mechs to the roster. Each roster row
+    shows that mech's credit cost, FP and whether its build is legal; the bar at the top
+    tracks the whole team against the budget. Click <b>Edit</b> on a row to build that mech with the normal
     designer below — every change is written straight back to the roster.</p>
     <p><b>Duplicate</b> copies a mech (or a weapon kit, missile kit, missile type,
     hacking kit or program) with all its settings, named "… (copy)". Handy when a

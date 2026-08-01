@@ -14,8 +14,8 @@ saves your builds locally on your own device.
   validation, so an illegal build tells you exactly what's wrong.
 - **Duplicate buttons** — copy a weapon kit, missile type, program or a whole mech
   with every setting intact. Handy for twin-linked loadouts and identical chassis.
-- **Warband mode** — set a team budget (200 FP is standard), build a roster of
-  mechs against it, and save, export or print the whole team at once.
+- **Warband mode** — set a team credit budget (200 small / 400 medium / 800 large),
+  build a roster of mechs against it, and save, export or print the whole team at once.
 - **Printable sheets** — one clean sheet per mech, plus a roster page in warband mode.
 
 ## Saving your work

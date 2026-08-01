@@ -123,6 +123,10 @@
   .rbad{color:var(--bad)}
   .rok{color:var(--good)}
   .editing{color:var(--accent2);font-weight:600}
+  .notewarn{color:var(--dim);font-size:13px;margin:-4px 0 8px;
+    border-left:3px solid var(--accent);padding-left:8px}
+  .notewarn a{color:var(--accent2)}
+  .backupbox li{margin:3px 0}
   details.help{margin:20px 0;color:var(--dim);font-size:14px}
   details.help summary{cursor:pointer;color:var(--accent2)}
   code{background:#191c20;padding:1px 5px;border-radius:4px;font-size:13px}
@@ -588,6 +592,10 @@ function render(){
       <button data-act="print">Print ${mode==="warband"?"all sheets":"sheet"}</button>
       <button data-act="reset" class="danger">${mode==="warband"?"Clear this mech":"New / Reset"}</button>
     </div>
+    <div class="notewarn">Saves live in this browser only — clearing site data, private
+      browsing, or switching device or browser loses them. Export anything you care about.
+      <a href="#backups">Back up everything ↓</a>
+    </div>
   </div>`;
   if(mode==="warband") h+=`<div class="kv no-print" style="margin:-4px 0 6px">Editing <span class="editing">${esc(state.name)}</span> — mech ${warband.active+1} of ${warband.mechs.length}.</div>`;
 
@@ -762,6 +770,32 @@ function render(){
   }
   h+=`</div>`;
 
+  // Backups
+  const nB=Object.keys(builds()).length, nW=Object.keys(warbands()).length;
+  h+=`<div class="no-print" id="backups"><h2>Saving &amp; backups</h2><div class="card backupbox">
+    <div class="kv">Your builds are stored in <b>this browser, on this device</b>. Nothing is
+      uploaded and there is no account, so they can disappear if:</div>
+    <ul class="kv">
+      <li>you clear cookies / site data (this wipes saved builds too)</li>
+      <li>you built them in a private or incognito window (discarded when it closes)</li>
+      <li>you open the page in another browser or on another device (saves don't follow you)</li>
+      <li>you're on iPhone or iPad — Safari deletes site data for pages you haven't opened
+        in 7 days. Adding this page to your Home Screen prevents that.</li>
+    </ul>
+    <div class="kv" style="margin:8px 0">A backup file is a real file: it survives all of the
+      above, moves between devices, and can be handed to another player.
+      You currently have <b>${nB} saved build${nB===1?"":"s"}</b> and
+      <b>${nW} saved warband${nW===1?"":"s"}</b>.</div>
+    <div class="toolbar" style="margin-bottom:0">
+      <button data-act="backup" class="primary">Back up everything</button>
+      <button data-act="restore">Restore from backup</button>
+      <input type="file" id="backupFile" accept=".json" style="display:none">
+    </div>
+    <div class="kv" style="margin-top:6px">The backup holds every saved build and warband
+      plus whatever you're working on right now. Restoring merges them into your saved
+      lists and leaves the mech you're currently editing alone.</div>
+  </div></div>`;
+
   // Warnings
   h+=`<div class="no-print"><h2>Validation</h2>`;
   if(c.warn.length){
@@ -920,6 +954,38 @@ function migrate(s){
   return out;
 }
 
+// Merge a backup file into the saved lists. Never touches the mech being edited —
+// anything the backup had "in progress" is filed under its own name instead.
+function restoreBackup(j){
+  if(!j||typeof j!=="object"||(!j.builds&&!j.warbands))
+    throw new Error("that isn't a Burning Steel backup file");
+  const inB=Object.assign({},j.builds||{}), inW=Object.assign({},j.warbands||{});
+  if(j.current&&j.current.mech&&j.current.mech.name&&!(j.current.mech.name in inB))
+    inB[j.current.mech.name]=j.current.mech;
+  if(j.current&&j.current.warband&&j.current.warband.name&&!(j.current.warband.name in inW))
+    inW[j.current.warband.name]=j.current.warband;
+
+  const nB=Object.keys(inB).length, nW=Object.keys(inW).length;
+  if(!nB&&!nW){ alert("That backup is empty — nothing to restore."); return; }
+  const have=builds(), haveW=warbands();
+  const clash=Object.keys(inB).filter(k=>k in have).concat(Object.keys(inW).filter(k=>k in haveW));
+  const msg=`Restore ${nB} build${nB===1?"":"s"} and ${nW} warband${nW===1?"":"s"}?`+
+    (clash.length?`\n\n${clash.length} have names you already use and will be overwritten:\n`+
+      clash.slice(0,8).join(", ")+(clash.length>8?", …":""):"")+
+    `\n\nThe mech you're editing right now is not changed.`;
+  if(!confirm(msg)) return;
+
+  Object.keys(inB).forEach(k=>{ have[k]=migrate(inB[k]); });
+  Object.keys(inW).forEach(k=>{ haveW[k]=migrateWarband(inW[k]); });
+  try{
+    localStorage.setItem("bs_builds",JSON.stringify(have));
+    localStorage.setItem("bs_warbands",JSON.stringify(haveW));
+  }catch(err){ alert("Ran out of browser storage while restoring: "+err.message); return; }
+  render();
+  alert(`Restored. You now have ${Object.keys(have).length} saved build(s) and `+
+        `${Object.keys(haveW).length} saved warband(s) — pick one from the dropdowns to load it.`);
+}
+
 // ------------------------- events -----------------------------------
 function setPath(path,val){
   const parts=path.split(".");
@@ -1037,6 +1103,22 @@ document.addEventListener("click",e=>{
       a.click(); URL.revokeObjectURL(a.href);
       return;}
     case "wbimport": document.getElementById("wbImportFile").click(); return;
+
+    // ---- whole-library backup ----
+    case "backup":{
+      const data={
+        format:"burning-steel-backup", version:1,
+        exported:new Date().toISOString(),
+        builds:builds(), warbands:warbands(),
+        current:{mode:mode, mech:soloState, warband:warband},
+      };
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="burning-steel-backup-"+new Date().toISOString().slice(0,10)+".json";
+      a.click(); URL.revokeObjectURL(a.href);
+      return;}
+    case "restore": document.getElementById("backupFile").click(); return;
     case "wbreset":
       warband=defaultWarband(); state=warband.mechs[0]; break;
     case "save":{
@@ -1074,6 +1156,13 @@ document.addEventListener("change",e=>{
     const r=new FileReader();
     r.onload=()=>{ try{replaceState(migrate(JSON.parse(r.result)));saveCurrent();render();}
       catch(err){alert("Could not read that file: "+err.message);} };
+    r.readAsText(e.target.files[0]);
+    e.target.value="";
+  }
+  if(e.target.id==="backupFile"&&e.target.files[0]){
+    const r=new FileReader();
+    r.onload=()=>{ try{ restoreBackup(JSON.parse(r.result)); }
+      catch(err){alert("Could not read that backup: "+err.message);} };
     r.readAsText(e.target.files[0]);
     e.target.value="";
   }

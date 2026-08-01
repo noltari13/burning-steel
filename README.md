@@ -38,7 +38,9 @@ variant is a small block that can remove equipment and adjust derived stats
 of the page switches the whole builder between rulesets instantly; the choice is
 stamped on exports and printed sheets. Ships with **Derived stats**: +1 HP per
 weight rank, +1 Dv per 5 weight (Armored Plates removed), +1 heat cap per
-2 energy, +1 COOLING per 5 energy, +1 to hit per 4 systems. Copy the block to
-try the next idea.
+2 energy, +1 COOLING per 5 energy, +1 to hit per 4 systems, and the
+alternative rank payments (HP via weight, movement/systems via weight or
+energy) are disabled — weight and energy already pay out through the derived
+stats. Copy the block to try the next idea.
 
 `mech_calculator_v2.html` is the earlier single-mech-only version, kept for reference.

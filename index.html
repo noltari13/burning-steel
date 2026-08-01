@@ -339,6 +339,9 @@ const DATA = {
    label, and edit. A variant can have:
    - removeEquipment: ["name", ...]  items that don't exist under it
      (equipped copies raise a validation warning instead of counting)
+   - noAltCosts: true  disables the alternative rank payments (HP via
+     weight, movement via weight/energy, systems via energy). The
+     inputs disappear and any saved values warn instead of counting.
    - derive(d): runs at the end of compute(). Adjust the finished mech:
      d.HP, d.dv, d.heatCap, d.cooling (heat removed per COOLING),
      d.hitBonus (to-hit bonus for weapon attacks), d.slam, d.M ...
@@ -352,8 +355,9 @@ const VARIANTS = {
   },
   derived: {
     label: "Derived stats",
-    blurb: "Frame ranks feed HP, Dv, heat capacity, cooling and to-hit.",
+    blurb: "Frame ranks feed HP, Dv, heat capacity, cooling and to-hit. No alternative rank payments.",
     removeEquipment: ["Armored Plates"],  // Dv now comes from weight instead
+    noAltCosts: true,   // weight/energy already pay out via derived stats — no double-dipping
     derive(d){
       const hpB  = d.Wmax;                  // +1 HP per weight rank (30+10 = 40 max)
       const dvB  = Math.floor(d.Wmax/5);    // every 5 weight ranks  -> +1 Dv
@@ -428,13 +432,17 @@ function compute(mech){
   const val=k=>F[k].vals[f[k]];
   const HP=val("hp"), Wmax=val("w"), Emax=val("e"), Hmax=val("ha"), M=val("m"), S=val("s");
 
-  // Frame FP with alternative payments
+  // Frame FP with alternative payments (a variant may disable these)
+  const noAlt=!!variant().noAltCosts;
+  if(noAlt&&(f.hpViaW||f.mViaW||f.mViaE||f.sViaE))
+    warn.push(`Alternative rank payments are not available under the "${variant().label}" variant — pay all ranks with FP.`);
+  const hpViaW=noAlt?0:f.hpViaW, mViaW=noAlt?0:f.mViaW, mViaE=noAlt?0:f.mViaE, sViaE=noAlt?0:f.sViaE;
   const hpAltMax=Math.floor(f.hp/2);
-  if(f.hpViaW>hpAltMax) warn.push(`HP: only ${hpAltMax} weight can be applied (2 ranks per weight, ${f.hp} ranks bought).`);
-  const hpAlt=Math.min(f.hpViaW,hpAltMax);
-  const mAlt=f.mViaW+f.mViaE;
+  if(hpViaW>hpAltMax) warn.push(`HP: only ${hpAltMax} weight can be applied (2 ranks per weight, ${f.hp} ranks bought).`);
+  const hpAlt=Math.min(hpViaW,hpAltMax);
+  const mAlt=mViaW+mViaE;
   if(mAlt>f.m) warn.push(`Movement: paying for ${mAlt} ranks with weight/energy but only ${f.m} ranks were bought.`);
-  const sAlt=f.sViaE;
+  const sAlt=sViaE;
   if(sAlt>f.s) warn.push(`Systems: paying for ${sAlt} ranks with energy but only ${f.s} ranks were bought.`);
   const fpHP=Math.max(0,F.hp.fp[f.hp]-2*hpAlt);
   const fpM =Math.max(0,F.m.fp[f.m]-F.m.perRankFP*Math.min(mAlt,f.m));
@@ -442,7 +450,7 @@ function compute(mech){
   const fpUsed=fpHP+F.w.fp[f.w]+F.e.fp[f.e]+F.ha.fp[f.ha]+fpM+fpS;
   if(fpUsed>DATA.frame.fpMax) warn.push(`Frame Points: ${fpUsed} / ${DATA.frame.fpMax} — over the limit.`);
 
-  let wUsed=f.hpViaW+f.mViaW, eUsed=f.mViaE+f.sViaE, sUsed=0, haUsed=0;
+  let wUsed=hpViaW+mViaW, eUsed=mViaE+sViaE, sUsed=0, haUsed=0;
 
   // Equipment (items removed by the active rules variant cost nothing
   // and do nothing — they just raise a warning if still equipped)
@@ -699,9 +707,11 @@ function render(){
       <span class="lab">${st.label}</span>
       ${sel("frame."+k,st.vals,f[k],st.fp,"FP")}
       <span class="fp">${st.fp[f[k]]} FP</span>`;
-    if(k==="hp") h+=`<span class="alt">ranks paid with weight (2/W): ${numIn("frame.hpViaW",f.hpViaW,5)}</span>`;
-    if(k==="m")  h+=`<span class="alt">ranks via weight: ${numIn("frame.mViaW",f.mViaW,5)} &nbsp; via energy: ${numIn("frame.mViaE",f.mViaE,5)}</span>`;
-    if(k==="s")  h+=`<span class="alt">ranks via energy: ${numIn("frame.sViaE",f.sViaE,6)}</span>`;
+    if(!variant().noAltCosts){
+      if(k==="hp") h+=`<span class="alt">ranks paid with weight (2/W): ${numIn("frame.hpViaW",f.hpViaW,5)}</span>`;
+      if(k==="m")  h+=`<span class="alt">ranks via weight: ${numIn("frame.mViaW",f.mViaW,5)} &nbsp; via energy: ${numIn("frame.mViaE",f.mViaE,5)}</span>`;
+      if(k==="s")  h+=`<span class="alt">ranks via energy: ${numIn("frame.sViaE",f.sViaE,6)}</span>`;
+    }
     h+=`</div>`;
   }
   h+=`<div class="kv" style="margin-top:8px">Frame cost: <b>${DATA.frame.baseCredits} cr</b> + ${c.fpUsed} FP × ${DATA.frame.creditsPerFP} cr = <b>${c.credits} credits</b>

@@ -372,6 +372,20 @@ const VARIANTS = {
       if(hitB) d.notes.push(`weapon attacks +${hitB} to hit (systems ${d.S} ÷ 4)`);
     }
   },
+  derivedwc: {
+    label: "Derived stats + weight classes",
+    blurb: "Derived stats, plus weight 1–3 is Light (+1 M), 4–6 Medium, 7+ Heavy (−1 M).",
+    removeEquipment: ["Armored Plates"],
+    noAltCosts: true,
+    derive(d){
+      VARIANTS.derived.derive(d);   // everything from Derived stats, plus:
+      if(d.Wmax<=3){ d.wclass="Light"; d.M+=1;
+        d.notes.push(`LIGHT frame (weight ${d.Wmax}): +1 M → ${d.M} (may exceed the rank cap)`); }
+      else if(d.Wmax>=7){ d.wclass="Heavy"; d.M=Math.max(1,d.M-1);
+        d.notes.push(`HEAVY frame (weight ${d.Wmax}): −1 M → ${d.M}`); }
+      else { d.wclass="Medium"; d.notes.push(`MEDIUM frame (weight ${d.Wmax}): M unchanged`); }
+    }
+  },
 };
 /* =================== END OF RULE VARIANTS =========================== */
 
@@ -951,7 +965,7 @@ function renderSummary(c,mech){
   mech = mech || state;
   let s=`<div class="sheet"><h2 style="margin-top:0">${esc(mech.name)}</h2>
     <div class="kv">
-      <b>HP ${c.HP}</b> &nbsp; <b>Dv ${c.dv}</b> &nbsp; <b>M ${c.M}</b> &nbsp; <b>S ${c.S}</b> &nbsp;
+      ${c.wclass?`<b>${c.wclass}</b> &nbsp; `:""}<b>HP ${c.HP}</b> &nbsp; <b>Dv ${c.dv}</b> &nbsp; <b>M ${c.M}</b> &nbsp; <b>S ${c.S}</b> &nbsp;
       <b>Heat Cap ${c.heatCap}</b>${c.overdrive?" (Overdrive)":""} &nbsp; W ${c.wUsed}/${c.Wmax} &nbsp; E ${c.eUsed}/${c.Emax} &nbsp;
       Ha ${c.haUsed}/${c.Hmax} &nbsp; Sys ${c.sUsed}/${c.S}<br>
       <b>${c.fpUsed} FP</b> • <b>${c.credits} credits</b> (frame ${DATA.frame.baseCredits} + FP) •

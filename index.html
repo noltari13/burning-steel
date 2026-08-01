@@ -105,14 +105,21 @@
   .modebar{display:flex;gap:8px;align-items:center;margin:14px 0 0}
   .modebar button{padding:6px 16px;font-weight:600}
   .modebar button.on{background:var(--accent);border-color:var(--accent);color:#1a1408}
-  .rosterrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  .rosterrow{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;
     padding:8px 0;border-bottom:1px dashed #2e343b}
   .rosterrow:last-child{border-bottom:none}
-  .rosterrow.active{background:#2f3540;border-radius:6px;padding:8px 8px;
+  .rosterrow.active{background:#2f3540;border-radius:6px;padding:8px;
     border-bottom:none;box-shadow:inset 3px 0 0 var(--accent)}
-  .rosterrow .rname{font-weight:700;min-width:150px;flex:1}
-  .rosterrow .rstat{color:var(--dim);font-size:13px;white-space:nowrap}
-  .rosterrow .rbtns{display:flex;gap:6px;margin-left:auto}
+  /* fixed head width keeps the stat columns aligned down the roster */
+  .rhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    flex:0 0 220px;max-width:100%}
+  .rname{font-weight:700;overflow-wrap:anywhere}
+  .rfp{font-weight:700;white-space:nowrap}
+  /* each stat is its own chunk so the line wraps cleanly instead of overflowing */
+  .rstat{display:flex;flex-wrap:wrap;gap:2px 10px;flex:1;min-width:0;
+    color:var(--dim);font-size:13px}
+  .rstat span{white-space:nowrap}
+  .rbtns{display:flex;gap:6px;margin-left:auto}
   .rbad{color:var(--bad)}
   .rok{color:var(--good)}
   .editing{color:var(--accent2);font-weight:600}
@@ -147,7 +154,17 @@
     .eqctl{margin-top:2px}
     .eqctl button{min-width:38px;font-size:16px}
     .sheet{padding:12px}
-    .rosterrow .rbtns{margin-left:0;width:100%}
+    /* roster: name+FP on one line, stats wrapped beneath, buttons full width */
+    .rosterrow{flex-direction:column;align-items:stretch;gap:6px;padding:10px 0}
+    .rosterrow.active{padding:10px 8px}
+    /* column layout: flex-basis would become a height, so clear it */
+    .rhead{flex:0 0 auto;min-width:0;gap:10px}
+    .rname{font-size:16px}
+    .rstat{flex:none;font-size:12px;gap:2px 8px}
+    .rbtns{margin-left:0}
+    .rbtns button{flex:1;padding:8px 4px}
+    /* the warband budget chips scroll sideways rather than stretch the page */
+    .modebar button{flex:1}
   }
   @media print{
     body{background:#fff;padding:0}
@@ -504,11 +521,17 @@ function renderRoster(){
   T.scored.forEach((x,i)=>{
     const c=x.c, bad=c.warn.length>0;
     h+=`<div class="rosterrow ${i===warband.active?"active":""}">
-      <span class="rname">${i===warband.active?"▶ ":""}${esc(x.m.name||"Unnamed")}</span>
-      <span class="rstat"><b class="${bad?"rbad":"rok"}">${c.fpUsed} FP</b> · ${c.credits} cr ·
-        HP ${c.HP} · Dv ${c.dv} · M ${c.M} ·
-        W ${c.wUsed}/${c.Wmax} E ${c.eUsed}/${c.Emax} Ha ${c.haUsed}/${c.Hmax} ·
-        ${bad?`<span class="rbad">${c.warn.length} problem${c.warn.length>1?"s":""}</span>`:`<span class="rok">legal</span>`}</span>
+      <span class="rhead">
+        <span class="rname">${i===warband.active?"▶ ":""}${esc(x.m.name||"Unnamed")}</span>
+        <span class="rfp ${bad?"rbad":"rok"}">${c.fpUsed} FP</span>
+      </span>
+      <span class="rstat">
+        <span>${c.credits} cr</span><span>HP ${c.HP}</span><span>Dv ${c.dv}</span><span>M ${c.M}</span>
+        <span${c.wUsed>c.Wmax?' class="rbad"':""}>W ${c.wUsed}/${c.Wmax}</span>
+        <span${c.eUsed>c.Emax?' class="rbad"':""}>E ${c.eUsed}/${c.Emax}</span>
+        <span${c.haUsed>c.Hmax?' class="rbad"':""}>Ha ${c.haUsed}/${c.Hmax}</span>
+        ${bad?`<span class="rbad">${c.warn.length} problem${c.warn.length>1?"s":""}</span>`:`<span class="rok">legal</span>`}
+      </span>
       <span class="rbtns">
         <button data-act="editmech" data-i="${i}" ${i===warband.active?"disabled":""}>Edit</button>
         <button data-act="dupmech" data-i="${i}">Duplicate</button>

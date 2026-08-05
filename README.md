@@ -1,15 +1,20 @@
 # Burning Steel — Mech & Warband Builder
 
-A single-file, offline-capable builder for the *Revised Burning Steel* tabletop rules.
-No install, no account, nothing to download — it runs entirely in the browser and
-saves your builds locally on your own device.
+A single-file, offline-capable builder for the *Burning Steel* tabletop rules
+(current with the **2026-08-05 ruleset**). No install, no account, nothing to
+download — it runs entirely in the browser and saves your builds locally on
+your own device.
 
 **Play it here:** https://noltari13.github.io/burning-steel/
 
 ## What it does
 
 - **Frame designer** — spend Frame Points on HP, weight, energy, hardpoints,
-  movement and systems, including the alternate weight/energy payments.
+  movement and systems, with the derived stats computed live: weight class
+  from FP invested (shiftable with Min/Max Frame), +2 HP per weight rank,
+  heat capacity from energy, weapon to-hit from systems, slam damage from
+  weight class, and tiered FP credit pricing (1 cr each to 20, 2 cr for
+  21–40, 3 cr for 41–60).
 - **Equipment, weapon, missile and hacking kits** — full point budgets with live
   validation, so an illegal build tells you exactly what's wrong.
 - **Duplicate buttons** — copy a weapon kit, missile type, program or a whole mech
@@ -34,15 +39,17 @@ inline.
 
 **Rule variants** — right below the game data, search for `RULE VARIANTS`. Each
 variant is a small block that can remove equipment and adjust derived stats
-(HP, Dv, heat capacity, cooling, to-hit). A "Rules variant" dropdown at the top
-of the page switches the whole builder between rulesets instantly; the choice is
-stamped on exports and printed sheets. Ships with **Derived stats**: +1 HP per
-weight rank, +1 Dv per 5 weight (Armored Plates removed), +1 heat cap per
-2 energy, +1 COOLING per 5 energy, +1 to hit per 4 systems, and the
-alternative rank payments (HP via weight, movement/systems via weight or
-energy) are disabled — weight and energy already pay out through the derived
-stats. **Derived stats + weight classes** adds frame classes on top: weight
-1–3 is Light (+1 M, may exceed the rank cap), 4–6 Medium, 7+ Heavy (−1 M).
-Copy a block to try the next idea.
+(HP, Dv, heat capacity, cooling, to-hit). A "Rules variant" dropdown appears at
+the top of the page whenever more than one variant exists; the choice is
+stamped on exports and printed sheets. The old **Derived stats** and
+**Derived stats + weight classes** playtest variants were adopted into the
+2026-08-05 rulebook (in revised form) and removed — add a new block next to
+`core` to playtest the next idea.
+
+Older saves load cleanly: renamed weapon mods are migrated (Energetic →
+Reactor Linked, Air Burst → Zeroed), equipment that no longer exists
+(Armored Plates, Heat Sinks) is dropped, out-of-range stat ranks are clamped
+(movement now tops out at 5), and the removed alternative rank payments are
+stripped — the validation panel flags anything that no longer fits.
 
 `mech_calculator_v2.html` is the earlier single-mech-only version, kept for reference.

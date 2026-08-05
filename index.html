@@ -7,9 +7,9 @@
 <!--
   BURNING STEEL — MECH & WARBAND BUILDER
   ======================================
-  A single-file mech builder for the Revised Burning Steel rules, plus a
-  Warband mode for building a whole team against a shared credit budget
-  (200 credits small / 400 medium / 800 large).
+  A single-file mech builder for the Burning Steel rules (matches the
+  2026-08-05 ruleset), plus a Warband mode for building a whole team
+  against a shared credit budget (200 small / 400 medium / 800 large).
   Open this file in any web browser. No internet needed.
 
   This is mech_calculator_v2.html with two additions:
@@ -211,51 +211,82 @@ const DATA = {
 
   frame: {
     baseCredits: 20,     // cost of a bare frame
-    creditsPerFP: 2,     // credits per Frame Point
+    // FP price is tiered: FP 1-20 cost 1 credit each, 21-40 cost 2, 41-60 cost 3.
+    creditTiers: [{upTo:20, per:1},{upTo:40, per:2},{upTo:60, per:3}],
     fpMax: 60,           // maximum FP investment
     baseDv: 3,
     baseHeatCap: 10,
+    // Weight class is derived from total FP invested (see fp ranges) and can be
+    // shifted one step either way with Min Frame / Max Frame equipment.
+    // mo = movement modifier; note = rules reminder printed on the sheet.
+    classes: [
+      {name:"UltraLight", mo:+1, note:"½ heat gain from movement actions"},
+      {name:"Light",      mo:+1},
+      {name:"Medium",     mo:0},
+      {name:"Heavy",      mo:-1},
+      {name:"UltraHeavy", mo:-2, note:"gain ½ heat when using BRACE"},
+    ],
     stats: {
-      // perRankFP = FP refunded per rank paid with weight/energy instead.
       hp: { label:"Hit Points (HP)", vals:[10,12,14,16,18,20,22,24,26,28,30],
-            fp:[0,1,2,3,4,5,6,7,8,9,10], perRankFP:1,
-            note:"2 ranks may be bought with 1 weight" },
+            fp:[0,1,2,3,4,5,6,7,8,9,10] },
       w:  { label:"Weight Max (W)",  vals:[2,3,4,5,6,7,8,9,10],
-            fp:[0,2,4,6,8,10,12,14,16], perRankFP:2 },
+            fp:[0,2,4,6,8,10,12,14,16],
+            note:"each weight rank adds +2 HP (may exceed 30)" },
       e:  { label:"Energy Max (E)",  vals:[2,3,4,5,6,7,8,9,10],
-            fp:[0,2,4,6,8,10,12,14,16], perRankFP:2 },
+            fp:[0,2,4,6,8,10,12,14,16],
+            note:"every 2 energy ranks add +1 heat capacity" },
       ha: { label:"Hardpoints (Ha)", vals:[1,2,3,4,5,6],
-            fp:[0,3,6,9,12,15], perRankFP:3 },
-      m:  { label:"Movement (M)",    vals:[2,3,4,5,6,7],
-            fp:[0,3,6,9,12,15], perRankFP:3,
-            note:"each rank may be bought with 1 weight OR 1 energy" },
+            fp:[0,3,6,9,12,15] },
+      m:  { label:"Movement (M)",    vals:[2,3,4,5],
+            fp:[0,3,6,9],
+            note:"modified by weight class" },
       s:  { label:"Systems (S)",     vals:[2,3,4,5,6,7,8],
-            fp:[0,3,6,9,12,15,18], perRankFP:3,
-            note:"each rank may be bought with 1 energy" },
+            fp:[0,3,6,9,12,15,18],
+            note:"every 4 systems ranks give +1 to hit with weapons" },
     }
   },
 
-  // Non-kit equipment. cat groups them; w/e/s are stat costs; limit = max copies.
+  // Non-kit equipment. cat groups them; w/e/s/ha are stat costs; limit = max copies.
+  // Packs: extra copies only add ammo (3 per copy) — the effect never stacks.
   equipment: [
-    {name:"Jammer Pack",     cat:"Packs (3 ammo each)", w:0,e:2,s:1, limit:2, fx:"DEPLOY 1 Jammer token (2Dv 2HP). Systems attacks −2 vs mechs within a medium area."},
-    {name:"Repair Pack",     cat:"Packs (3 ammo each)", w:1,e:0,s:0, limit:2, fx:"REPAIR action: self or adjacent mech gains 10 + d10 HP. 1 ammo."},
-    {name:"Cover Pack",      cat:"Packs (3 ammo each)", w:1,e:0,s:0, limit:2, fx:"DEPLOY 2 wall tokens (height 2, 10HP, 2Dv) adjacent. 1 ammo."},
-    {name:"Shield Pack",     cat:"Packs (3 ammo each)", w:0,e:2,s:1, limit:2, fx:"SHIELD reaction: prevent all damage dealt this turn to this mech. 1 ammo."},
-    {name:"Stabilizer Pack", cat:"Packs (3 ammo each)", w:0,e:0,s:2, limit:2, fx:"STABILIZE: +2 to hit with weapon attacks, M becomes 0. Undo consumes 1 ammo."},
-    {name:"Targeting Relay", cat:"Relays", w:0,e:0,s:2, limit:1, fx:"SPOT reaction: ally attacking an enemy in this mech's LoS gains +2 to hit."},
+    {name:"Jammer Pack",     cat:"Packs (3 ammo each; extra copies only add ammo)", w:0,e:2,s:0,ha:1, limit:2, fx:"DEPLOY 1 Jammer token (2Dv 2HP). Systems attacks −2 vs mechs within a medium area. 1 ammo."},
+    {name:"Debug Pack",      cat:"Packs (3 ammo each; extra copies only add ammo)", w:0,e:0,s:3, limit:3, fx:"DEBUG: target self or adjacent mech, remove one effect caused by a program. 1 ammo."},
+    {name:"Repair Pack",     cat:"Packs (3 ammo each; extra copies only add ammo)", w:2,e:0,s:0, limit:3, fx:"REPAIR: self or adjacent ally gains HP equal to 10 + 2× this mech's systems. 1 ammo."},
+    {name:"Cover Pack",      cat:"Packs (3 ammo each; extra copies only add ammo)", w:1,e:0,s:0, limit:2, fx:"DEPLOY 3 wall tokens (height +2, 10HP, 2Dv) within range 2. 1 ammo."},
+    {name:"Shield Pack",     cat:"Packs (3 ammo each; extra copies only add ammo)", w:0,e:0,s:2,ha:1, limit:2, fx:"SHIELD! reaction: prevent all damage dealt this turn to this mech. 1 ammo."},
+    {name:"Stabilizer Pack", cat:"Packs (3 ammo each; extra copies only add ammo)", w:1,e:0,s:1, limit:2, fx:"STABILIZE: +2 to hit with weapon attacks, M becomes 0. Undo consumes 1 ammo."},
+    {name:"Armor Pack",      cat:"Packs (3 ammo each; extra copies only add ammo)", w:2,e:0,s:0,ha:1, limit:2, fx:"+2 Dv. Remove 1 ammo whenever this mech takes damage (each successful shot is one instance)."},
+    {name:"Booster Pack",    cat:"Packs (3 ammo each; extra copies only add ammo)", w:1,e:0,s:1, limit:2, fx:"Spend 1 ammo: +1 M until end of turn. Once per turn."},
+    {name:"Intercept Pack",  cat:"Packs (3 ammo each; extra copies only add ammo)", w:1,e:0,s:2, limit:2, fx:"INTERCEPT! reaction: missile attack within a medium area — d10 + systems vs Dv 5; 5+ destroys the missile. 1 ammo."},
+    {name:"Targeting Relay", cat:"Relays", w:0,e:0,s:2, limit:1, fx:"SPOT! reaction: ally attacking an enemy in this mech's unobstructed LoS gains +2 to hit."},
     {name:"Command Relay",   cat:"Relays", w:2,e:2,s:2, limit:1, fx:"This mech's order may activate another mech within LoS."},
     {name:"Hacking Relay",   cat:"Relays", w:0,e:2,s:1, limit:1, fx:"Friendly program attacks targeting this mech may originate from it."},
-    {name:"Charge Jets",     cat:"Jets", w:0,e:1,s:1, limit:1, fx:"CHARGE: move up to M, then slam attack. +1 heat per 2 tiles moved."},
-    {name:"Hover Jets",      cat:"Jets", w:0,e:2,s:1, limit:1, fx:"Hovers; ignores ground effects."},
-    {name:"Jump Jets",       cat:"Jets", w:0,e:1,s:1, limit:1, fx:"JUMP: move up to M ignoring ground effects and height. +1 heat per 2 tiles."},
-    {name:"Jink Jets",       cat:"Jets", w:0,e:2,s:0, limit:1, fx:"JINK reaction: after resolving an attack against this mech, move 1 hex."},
-    {name:"Armored Plates",  cat:"Passive", w:2,e:0,s:0, limit:2, fx:"+1 Dv."},
-    {name:"Gapped Armor",    cat:"Passive", w:1,e:0,s:0, limit:1, fx:"Incoming chip damage is always 1."},
-    {name:"Heat Sinks",      cat:"Passive", w:1,e:0,s:0, limit:2, fx:"+heat capacity equal to ½ weight max (rounded up)."},
-    {name:"Air-Cooled",      cat:"Passive", w:0,e:0,s:1, limit:1, fx:"Lose heat equal to evasion Dv bonus at end of turn."},
-    {name:"Radiator",        cat:"Passive", w:0,e:1,s:0, limit:2, fx:"Remove 1 extra heat when using COOLING."},
-    {name:"Overdrive Engine",cat:"Passive", w:2,e:2,s:2, limit:1, fx:"Extra order per round, but base heat capacity becomes 5."},
-    {name:"Safety Protocols",cat:"Passive", w:0,e:1,s:1, limit:1, fx:"Roll two dice for threshold effects, pick one (after re-rolls)."},
+    {name:"ICE Relay",       cat:"Relays", w:0,e:0,s:2, limit:1, fx:"ICE! reaction: adjacent mech targeted by a program attack adds this mech's systems to its system Dv."},
+    {name:"Charge Jets",     cat:"Jets & Legs", w:0,e:1,s:1, limit:1, fx:"→CHARGE: move up to M, then slam attack. +1 heat per tile moved."},
+    {name:"Hover Jets",      cat:"Jets & Legs", w:0,e:2,s:1, limit:1, fx:"Hovers; ignores ground effects and negative elevation from water."},
+    {name:"Jump Jets",       cat:"Jets & Legs", w:0,e:1,s:1, limit:1, fx:"→JUMP: move ignoring ground effects between first and last hex; may climb by spending movement. +1 heat per M used."},
+    {name:"Jink Jets",       cat:"Jets & Legs", w:0,e:1,s:1, limit:1, fx:"→JINK! reaction: after resolving an attack against this mech, move 1 hex."},
+    {name:"Climbing Legs",   cat:"Jets & Legs", w:0,e:0,s:2, limit:1, fx:"Move up height 2 without penalty; +1 movement per height past 2."},
+    {name:"Tracked Legs",    cat:"Jets & Legs", w:2,e:0,s:0, limit:1, fx:"Roadways give +1 movement per 1 tile crossed instead."},
+    {name:"Flight Jets",     cat:"Jets & Legs", w:0,e:2,s:2, limit:1, fx:"Light/UltraLight only. Change altitude by spending movement; lose movement equal to weight class when starting off the ground; falls if no movement action."},
+    {name:"Assault Computer",  cat:"Computers (disabled by threshold 5)", w:0,e:0,s:3, limit:1, fx:"ASSAULT: +1 to hit per 2 weapons used."},
+    {name:"Duelist Computer",  cat:"Computers (disabled by threshold 5)", w:0,e:0,s:3, limit:1, fx:"If this mech and its target have LoS to only each other: +2 on all rolls."},
+    {name:"Melee Computer",    cat:"Computers (disabled by threshold 5)", w:0,e:0,s:2, limit:1, fx:"Adjacent to an enemy: roll an extra die when attacking, ignore the lowest."},
+    {name:"Mission Computer",  cat:"Computers (disabled by threshold 5)", w:0,e:0,s:3, limit:1, fx:"Capturing or completing any objective grants 1 action."},
+    {name:"Isolation Computer",cat:"Computers (disabled by threshold 5)", w:0,e:0,s:2, limit:1, fx:"Enemy within a medium area: +2 M, but must end its turn further from enemies or gain +5 heat."},
+    {name:"Missile Computer",  cat:"Computers (disabled by threshold 5)", w:0,e:0,s:4, limit:1, fx:"The same missile kit may be used multiple times per turn."},
+    {name:"Overwatch Computer",cat:"Computers (disabled by threshold 5)", w:0,e:0,s:2, limit:1, fx:"Two overwatch areas, and an extra +1 to hit on Overwatch Attack!"},
+    {name:"Anti-Virus",      cat:"Passive", w:0,e:0,s:2, limit:3, fx:"+1 system Dv per copy (up to +3)."},
+    {name:"Plow",            cat:"Passive", w:2,e:0,s:0, limit:1, fx:"Heavy/UltraHeavy only. SLAM adjacent immobile units and structures once per turn, no action cost."},
+    {name:"Gapped Armor",    cat:"Passive", w:1,e:0,s:0, limit:3, fx:"Reduce incoming chip damage by 1 per copy (minimum 1, up to −3)."},
+    {name:"Liquid Cooled",   cat:"Passive", w:1,e:0,s:0, limit:3, fx:"+2 heat capacity per copy. Remove 1 heat at end of turn while in water."},
+    {name:"Min Frame",       cat:"Passive", w:0,e:0,s:0,ha:2, limit:1, fx:"Decrease the weight class one step."},
+    {name:"Max Frame",       cat:"Passive", w:0,e:0,s:0,ha:2, limit:1, fx:"Increase the weight class one step."},
+    {name:"Air-Cooled",      cat:"Passive", w:1,e:0,s:1, limit:1, fx:"Lose heat equal to evasion Dv bonus at end of turn."},
+    {name:"Radiator",        cat:"Passive", w:1,e:1,s:0, limit:2, fx:"Remove 1 extra heat when using COOLING."},
+    {name:"AI Pilot",        cat:"Passive", w:0,e:3,s:1, limit:1, fx:"Must move by shortest path. Takes program-effect PP cost as damage if hit by an enemy program. Three reactions per mech order. Immune to Injured Pilot."},
+    {name:"Overdrive Engine",cat:"Passive", w:2,e:2,s:2, limit:1, fx:"Extra order per round, but base heat capacity becomes 5. If destroyed, produces NO order cards."},
+    {name:"Safety Protocols",cat:"Passive", w:0,e:1,s:1, limit:2, fx:"Roll two dice for threshold effects, pick one (after re-rolls). Four dice with 2 copies."},
   ],
 
   // WEAPON DESIGNER. Kit base cost: 1W 1E + 1-3 hardpoints.
@@ -268,20 +299,29 @@ const DATA = {
     damage:   { vals:[2,3,4,5,6,8],       cost:[0,2,4,6,8,10] },
     accuracy: { vals:[0,1,2,3,4,5],       cost:[0,3,6,9,12,15] },
     modules: [
-      // melee:true = weapon range becomes 1 and range WP costs are ignored.
-      {name:"Melee",         w:0,e:0,s:0,wp:0, melee:true, fx:"Range = 1. Gains PURSUE reaction (follow an enemy leaving an adjacent tile)."},
-      {name:"Energetic",     w:0,e:2,s:0,wp:2, fx:"+½ energy max (rounded up) to damage."},
-      {name:"Beam",          w:0,e:2,s:0,wp:2, fx:"½ optimal range band. Attacks all LoS units in a line to the target hex."},
+      // melee:true = the weapon is designated Melee: range becomes 1 (adjacent
+      // only), range WP costs are waived, and it may replace the SLAM profile.
+      // allow: "ranged" / "melee" restricts a module to that weapon type;
+      // omit allow for modules legal on both.
+      {name:"Melee",         w:0,e:0,s:0,wp:0, melee:true, fx:"Adjacent units only. May be used instead of the default SLAM profile."},
+      {name:"Reactor Linked",w:0,e:2,s:0,wp:2, fx:"+½ energy max (rounded up) to damage. +1 heat when used."},
       {name:"Heated",        w:0,e:2,s:0,wp:1, fx:"Target gains 1 heat per 2 damage dealt."},
-      {name:"Blasting",      w:0,e:0,s:0,wp:2, fx:"Double damage to structures."},
-      {name:"Precise",       w:0,e:0,s:1,wp:1, fx:"Critical hits upgrade one crit level."},
-      {name:"Indirect",      w:0,e:0,s:2,wp:2, fx:"Attacks do not require LoS."},
-      {name:"Shredding",     w:0,e:0,s:0,wp:2, fx:"On crit: target loses 1 Dv (×crit level) until repaired."},
-      {name:"Air Burst",     w:1,e:0,s:0,wp:2, fx:"+1 to hit; only usable at optimal range."},
-      {name:"Core Targeting",w:0,e:0,s:1,wp:1, fx:"+1 to hit; deals no chip damage."},
-      {name:"Heat Seeking",  w:0,e:0,s:1,wp:1, fx:"+1 to hit per 5 heat on the target."},
-      {name:"Scoped",        w:0,e:0,s:1,wp:1, fx:"Ignore partial cover; cannot fire under optimal range."},
-      {name:"Automatic",     w:0,e:0,s:0,wp:2, fx:"Roll an extra d10 per attack action, drop the lowest."},
+      {name:"Blasting",      w:0,e:0,s:0,wp:2, fx:"Double damage to structures. +1 damage to Heavy and UltraHeavy units."},
+      {name:"Precise",       w:0,e:0,s:1,wp:1, fx:"Critical hits upgrade one crit level (no upper bound)."},
+      {name:"Shredding",     w:0,e:0,s:0,wp:2, fx:"On crit: target loses 1 Dv (×crit level) until repaired or restored."},
+      {name:"Core Targeting",w:0,e:0,s:1,wp:2, fx:"+to hit equal to the target's weight class. Cannot crit."},
+      {name:"Beam",          w:0,e:2,s:0,wp:2, allow:"ranged", fx:"Damage cannot be reduced; does not trigger reactions."},
+      {name:"Fragmentation", w:1,e:0,s:0,wp:2, allow:"ranged", fx:"Units adjacent to the target take ½ the damage the target took."},
+      {name:"Indirect",      w:0,e:0,s:2,wp:3, allow:"ranged", fx:"No LoS needed; requires clear vertical space above the target. Cover still applies."},
+      {name:"Zeroed",        w:0,e:0,s:1,wp:2, allow:"ranged", fx:"+1 to hit; only usable at optimal range."},
+      {name:"Heat Seeking",  w:0,e:0,s:1,wp:1, allow:"ranged", fx:"+1 to hit per 5 heat on the target."},
+      {name:"Scoped",        w:0,e:0,s:1,wp:1, allow:"ranged", fx:"Ignore partial cover; cannot fire under optimal range."},
+      {name:"Automatic",     w:0,e:0,s:0,wp:2, allow:"ranged", fx:"Roll an extra d10 per attack action, drop the lowest."},
+      {name:"Jet-Assist",    w:0,e:0,s:0,wp:2, allow:"melee",  fx:"→PURSUE! reaction: follow an enemy leaving an adjacent tile with any movement action."},
+      {name:"Inertial",      w:0,e:0,s:0,wp:2, allow:"melee",  fx:"+damage equal to this mech's weight class value."},
+      {name:"Rapid",         w:0,e:0,s:0,wp:3, allow:"melee",  fx:"+shots equal to ½ M value (rounded up)."},
+      {name:"Blitz",         w:0,e:0,s:1,wp:1, allow:"melee",  fx:"This weapon does not trigger reactions."},
+      {name:"Parrying",      w:1,e:0,s:0,wp:2, allow:"melee",  fx:"+1 Dv when targeted by an adjacent mech's weapon attack."},
     ]
   },
 
@@ -289,19 +329,22 @@ const DATA = {
   missile: {
     baseW:2, mpPerHardpoint:5, maxBonusW:3, kitLimit:6,
     range:    { labels:["3–5","4–7","5–10","6–12"], cost:[0,1,2,3] },
-    size:     { labels:["Target Hex","Small","Medium","Large"], cost:[0,2,4,6] },
+    size:     { labels:["Target Hex","Small","Medium","Large"], cost:[1,3,5,7] },
     ammo:     { vals:[4,6,8,10], cost:[0,1,2,3] },
     duration: { vals:[1,2,3,4],  cost:[0,1,2,3] },
-    // Payloads: levels = selectable versions. A missile may take several payloads.
+    // Payloads: levels = selectable versions. A missile may take several payloads
+    // (never the same one twice). s = systems cost (targeting mods).
     payloads: [
-      {name:"Damaging",    levels:[{lab:"1 dmg",cost:2},{lab:"2 dmg",cost:3},{lab:"3 dmg",cost:4},{lab:"4 dmg",cost:5}], fx:"Units in blast take the damage once."},
-      {name:"Concealing",  levels:[{lab:"Yes",cost:1}], fx:"Attacks through the effect suffer −2 to hit."},
+      {name:"Damaging",    levels:[{lab:"2 dmg",cost:2},{lab:"3 dmg",cost:3},{lab:"4 dmg",cost:4}], fx:"Units in blast take the damage once (unaffected by duration)."},
+      {name:"Demolition",  levels:[{lab:"Yes",cost:2}], fx:"Deals 10 damage to structures."},
+      {name:"Concealing",  levels:[{lab:"Yes",cost:1}], fx:"Affected hexes produce concealing thick smoke (−2 to hit if LoS passes through)."},
       {name:"Hot",         levels:[{lab:"Yes",cost:2}], fx:"Units in effect gain 2 heat, and at end of their turn."},
       {name:"Minefield",   levels:[{lab:"2 dmg",cost:1},{lab:"4 dmg",cost:3}], fx:"Mines trigger on entry (Dv 2, 1 HP)."},
       {name:"Constricting",levels:[{lab:"Yes",cost:2}], fx:"Effect hexes are loose terrain for the duration."},
       {name:"Static",      levels:[{lab:"Yes",cost:2}], fx:"Creates a static storm (blocks program attacks)."},
-      {name:"Indirect",    levels:[{lab:"Yes",cost:1}], fx:"Allows non-LoS attacks."},
-      {name:"Multi",       levels:[{lab:"Yes",cost:1}], fx:"Targets hexes equal to MP spent on effect size instead of a template."},
+      {name:"Indirect",    levels:[{lab:"Yes",cost:1}], s:2, fx:"No LoS needed; requires clear vertical space above the target. Cover still applies."},
+      {name:"Multi",       levels:[{lab:"Yes",cost:1}], s:1, fx:"Targets hexes equal to MP spent on effect size instead of a template."},
+      {name:"Cluster",     levels:[{lab:"Yes",cost:1}], s:1, fx:"Launch one extra identical missile; blast areas must be contiguous (overlaps don't stack)."},
     ]
   },
 
@@ -313,9 +356,9 @@ const DATA = {
     duration: { vals:[1,2,3,4,5],  cost:[0,2,3,4,5] },
     bonus:    { vals:[0,1,2,3,4,5],cost:[0,1,2,3,4,5] },
     effects: [
-      {name:"Aim Assist / Jam",       cost:2, fx:"Target gains [+/−] 2 to hit with weapon attacks."},
+      {name:"Aim Assist / Jam",       cost:3, fx:"Target gains [+/−] 2 to hit with weapon attacks."},
       {name:"Move Help / Hinder",     cost:2, fx:"Target gains [+/−] 2 movement."},
-      {name:"Radiator Burn / Ice",    cost:2, fx:"Target gains [+/−] 2 heat."},
+      {name:"Burn / Freeze",          cost:2, fx:"Target gains [+/−] 2 heat."},
       {name:"Threshold Fix / Break",  cost:5, fx:"Target [ignores effects of / rolls on] the threshold table."},
       {name:"Crit Up / Down",         cost:1, fx:"[Upgrade / downgrade] critical hits made by the target."},
       {name:"Kit Theft",              cost:7, fx:"Target uses kit equipment with a weapon, program, or missile attack. One-time."},
@@ -323,6 +366,7 @@ const DATA = {
       {name:"Beacon / Cloak",         cost:3, fx:"Target has [+/−] 1 Dv."},
       {name:"Ping / Scramble",        cost:3, fx:"Target requires LoS to target / cannot trigger reactions."},
       {name:"Firewall / Backdoor",    cost:2, fx:"Target has [+/−] 2 system defense against programs."},
+      {name:"IFF Scramble",           cost:3, fx:"Target is considered an enemy to all mechs and cannot receive beneficial effects."},
     ]
   },
 };
@@ -335,13 +379,10 @@ const DATA = {
    of the page. The choice is remembered, stamped on exports and printed
    sheets, and every build recomputes instantly when you switch.
 
-   To try a NEW idea: copy the "derived" block, rename the key and
+   To try a NEW idea: add a block next to "core" with a new key and
    label, and edit. A variant can have:
    - removeEquipment: ["name", ...]  items that don't exist under it
      (equipped copies raise a validation warning instead of counting)
-   - noAltCosts: true  disables the alternative rank payments (HP via
-     weight, movement via weight/energy, systems via energy). The
-     inputs disappear and any saved values warn instead of counting.
    - derive(d): runs at the end of compute(). Adjust the finished mech:
      d.HP, d.dv, d.heatCap, d.cooling (heat removed per COOLING),
      d.hitBonus (to-hit bonus for weapon attacks), d.slam, d.M ...
@@ -350,42 +391,12 @@ const DATA = {
    ===================================================================== */
 const VARIANTS = {
   core: {
-    label: "Core rules",
-    blurb: "The rulebook as written.",
+    label: "Core rules (2026-08-05)",
+    blurb: "The rulebook as written. Derived stats and weight classes are core rules now.",
   },
-  derived: {
-    label: "Derived stats",
-    blurb: "Frame ranks feed HP, Dv, heat capacity, cooling and to-hit. No alternative rank payments.",
-    removeEquipment: ["Armored Plates"],  // Dv now comes from weight instead
-    noAltCosts: true,   // weight/energy already pay out via derived stats — no double-dipping
-    derive(d){
-      const hpB  = d.Wmax;                  // +1 HP per weight rank (30+10 = 40 max)
-      const dvB  = Math.floor(d.Wmax/5);    // every 5 weight ranks  -> +1 Dv
-      const hcB  = Math.floor(d.Emax/2);    // every 2 energy ranks  -> +1 heat capacity
-      const clB  = Math.floor(d.Emax/5);    // every 5 energy ranks  -> +1 heat per COOLING
-      const hitB = Math.floor(d.S/4);       // every 4 systems ranks -> +1 to hit (weapons)
-      d.HP+=hpB; d.dv+=dvB; d.heatCap+=hcB; d.cooling+=clB; d.hitBonus+=hitB;
-      if(hpB)  d.notes.push(`HP ${d.HP} = ${d.HP-hpB} + ${hpB} (1 per weight rank)`);
-      if(dvB)  d.notes.push(`Dv +${dvB} (weight ${d.Wmax} ÷ 5)`);
-      if(hcB)  d.notes.push(`heat cap +${hcB} (energy ${d.Emax} ÷ 2)`);
-      if(clB)  d.notes.push(`COOLING removes ${d.cooling} (+${clB} from energy ${d.Emax} ÷ 5)`);
-      if(hitB) d.notes.push(`weapon attacks +${hitB} to hit (systems ${d.S} ÷ 4)`);
-    }
-  },
-  derivedwc: {
-    label: "Derived stats + weight classes",
-    blurb: "Derived stats, plus weight 1–3 is Light (+1 M), 4–6 Medium, 7+ Heavy (−1 M).",
-    removeEquipment: ["Armored Plates"],
-    noAltCosts: true,
-    derive(d){
-      VARIANTS.derived.derive(d);   // everything from Derived stats, plus:
-      if(d.Wmax<=3){ d.wclass="Light"; d.M+=1;
-        d.notes.push(`LIGHT frame (weight ${d.Wmax}): +1 M → ${d.M} (may exceed the rank cap)`); }
-      else if(d.Wmax>=7){ d.wclass="Heavy"; d.M=Math.max(1,d.M-1);
-        d.notes.push(`HEAVY frame (weight ${d.Wmax}): −1 M → ${d.M}`); }
-      else { d.wclass="Medium"; d.notes.push(`MEDIUM frame (weight ${d.Wmax}): M unchanged`); }
-    }
-  },
+  // The "Derived stats" and "Derived stats + weight classes" playtest variants
+  // were adopted into the 2026-08-05 rulebook (in revised form) and removed.
+  // The variant picker only appears when more than one variant exists.
 };
 /* =================== END OF RULE VARIANTS =========================== */
 
@@ -398,7 +409,7 @@ function defaultState(){
   const eq={}; DATA.equipment.forEach(x=>eq[x.name]=0);
   return {
     name:"New Mech",
-    frame:{hp:0,w:0,e:0,ha:0,m:0,s:0, hpViaW:0, mViaW:0, mViaE:0, sViaE:0},
+    frame:{hp:0,w:0,e:0,ha:0,m:0,s:0},
     equipment:eq,
     weapons:[],      // {name,ha,bw,be,range,rmin,shots,dmg,acc,mods:[]}
     missileKits:[],  // {name,ha,types:[{name,bw,range,size,ammo,dur,payloads:{}}]}
@@ -439,47 +450,56 @@ function newProgramKit(n){ return {name:"Hacking Kit "+n, ha:1, types:[newProgra
 function newProgramType(n){ return {name:"Program "+n, be:0,range:0,ammo:0,dur:0,bonus:0,effect:-1}; }
 
 // ------------------------- compute ----------------------------------
+// Tiered FP pricing: FP 1-20 cost 1 credit, 21-40 cost 2, 41-60 cost 3.
+function fpCredits(fp){
+  let cr=0, prev=0;
+  for(const t of DATA.frame.creditTiers){
+    cr+=Math.max(0,Math.min(fp,t.upTo)-prev)*t.per; prev=t.upTo;
+  }
+  return cr+Math.max(0,fp-prev)*3;   // anything past the last tier (over-limit builds)
+}
 // Pass a mech to score any roster member; defaults to the one being edited.
 function compute(mech){
   mech = mech || state;
   const warn=[], F=DATA.frame.stats, f=mech.frame;
   const val=k=>F[k].vals[f[k]];
-  const HP=val("hp"), Wmax=val("w"), Emax=val("e"), Hmax=val("ha"), M=val("m"), S=val("s");
+  const HPbase=val("hp"), Wmax=val("w"), Emax=val("e"), Hmax=val("ha"), Mbase=val("m"), S=val("s");
 
-  // Frame FP with alternative payments (a variant may disable these)
-  const noAlt=!!variant().noAltCosts;
-  if(noAlt&&(f.hpViaW||f.mViaW||f.mViaE||f.sViaE))
-    warn.push(`Alternative rank payments are not available under the "${variant().label}" variant — pay all ranks with FP.`);
-  const hpViaW=noAlt?0:f.hpViaW, mViaW=noAlt?0:f.mViaW, mViaE=noAlt?0:f.mViaE, sViaE=noAlt?0:f.sViaE;
-  const hpAltMax=Math.floor(f.hp/2);
-  if(hpViaW>hpAltMax) warn.push(`HP: only ${hpAltMax} weight can be applied (2 ranks per weight, ${f.hp} ranks bought).`);
-  const hpAlt=Math.min(hpViaW,hpAltMax);
-  const mAlt=mViaW+mViaE;
-  if(mAlt>f.m) warn.push(`Movement: paying for ${mAlt} ranks with weight/energy but only ${f.m} ranks were bought.`);
-  const sAlt=sViaE;
-  if(sAlt>f.s) warn.push(`Systems: paying for ${sAlt} ranks with energy but only ${f.s} ranks were bought.`);
-  const fpHP=Math.max(0,F.hp.fp[f.hp]-2*hpAlt);
-  const fpM =Math.max(0,F.m.fp[f.m]-F.m.perRankFP*Math.min(mAlt,f.m));
-  const fpS =Math.max(0,F.s.fp[f.s]-F.s.perRankFP*Math.min(sAlt,f.s));
-  const fpUsed=fpHP+F.w.fp[f.w]+F.e.fp[f.e]+F.ha.fp[f.ha]+fpM+fpS;
+  if(f.hpViaW||f.mViaW||f.mViaE||f.sViaE)
+    warn.push("Alternative rank payments (HP via weight, movement/systems via weight or energy) were removed in the 2026-08-05 rules — pay all ranks with FP.");
+  const fpUsed=F.hp.fp[f.hp]+F.w.fp[f.w]+F.e.fp[f.e]+F.ha.fp[f.ha]+F.m.fp[f.m]+F.s.fp[f.s];
   if(fpUsed>DATA.frame.fpMax) warn.push(`Frame Points: ${fpUsed} / ${DATA.frame.fpMax} — over the limit.`);
 
-  let wUsed=hpViaW+mViaW, eUsed=mViaE+sViaE, sUsed=0, haUsed=0;
+  let wUsed=0, eUsed=0, sUsed=0, haUsed=0;
 
   // Equipment (items removed by the active rules variant cost nothing
   // and do nothing — they just raise a warning if still equipped)
   const rmEq=removedEquipment();
+  const eqN=name=>rmEq.has(name)?0:(mech.equipment[name]||0);
   for(const eq of DATA.equipment){
     const n=mech.equipment[eq.name]||0;
     if(rmEq.has(eq.name)){ if(n) warn.push(`${eq.name} does not exist under the "${variant().label}" variant — remove it.`); continue; }
-    wUsed+=n*eq.w; eUsed+=n*eq.e; sUsed+=n*eq.s;
+    wUsed+=n*eq.w; eUsed+=n*eq.e; sUsed+=n*eq.s; haUsed+=n*(eq.ha||0);
   }
+
+  // Weight class: from FP invested, shifted by Min/Max Frame equipment.
+  let wclassV=fpUsed<=20?1:fpUsed<=40?2:3;
+  wclassV+= (eqN("Max Frame")?1:0)-(eqN("Min Frame")?1:0);
+  wclassV=Math.max(0,Math.min(DATA.frame.classes.length-1,wclassV));
+  const WC=DATA.frame.classes[wclassV];
+  const M=Math.max(1,Mbase+WC.mo);
+  if(eqN("Flight Jets")&&wclassV>1) warn.push(`Flight Jets require a Light or UltraLight frame (this mech is ${WC.name}).`);
+  if(eqN("Plow")&&wclassV<3)        warn.push(`Plow requires a Heavy or UltraHeavy frame (this mech is ${WC.name}).`);
 
   // Weapon kits
   const WD=DATA.weapon;
   const weapons=mech.weapons.map((wp,i)=>{
     const mods=WD.modules.filter(m=>wp.mods.includes(m.name));
     const melee=mods.some(m=>m.melee);
+    for(const m of mods){
+      if(m.allow==="ranged"&&melee)  warn.push(`${wp.name}: ${m.name} cannot be taken on a Melee weapon.`);
+      if(m.allow==="melee"&&!melee) warn.push(`${wp.name}: ${m.name} is Melee-only — designate the weapon Melee or remove it.`);
+    }
     const modW=mods.reduce((a,m)=>a+m.w,0), modE=mods.reduce((a,m)=>a+m.e,0),
           modS=mods.reduce((a,m)=>a+m.s,0), modWP=mods.reduce((a,m)=>a+m.wp,0);
     const budget=WD.wpPerHardpoint*wp.ha+wp.bw+wp.be;
@@ -490,9 +510,11 @@ function compute(mech){
     wUsed+=cw; eUsed+=ce; sUsed+=modS; haUsed+=wp.ha;
     const rMin=melee?1:Math.max(1,WD.range.mins[wp.range]-WD.rangeMin.vals[wp.rmin]);
     const rMax=melee?1:WD.range.maxs[wp.range];
-    const dmg=WD.damage.vals[wp.dmg]+(wp.mods.includes("Energetic")?Math.ceil(Emax/2):0);
-    const shots=WD.shots.vals[wp.shots];
-    let shotPen=0; if(shots>=3)shotPen--; if(shots>=5)shotPen--;
+    const dmg=WD.damage.vals[wp.dmg]
+      +(wp.mods.includes("Reactor Linked")?Math.ceil(Emax/2):0)
+      +(wp.mods.includes("Inertial")?wclassV:0);
+    const shots=WD.shots.vals[wp.shots]+(wp.mods.includes("Rapid")?Math.ceil(M/2):0);
+    const shotPen=shots>=7?-3:shots>=5?-2:shots>=3?-1:0;
     return {i,wp,mods,melee,budget,wpSpent,cw,ce,cs:modS,rMin,rMax,dmg,shots,shotPen,
             acc:WD.accuracy.vals[wp.acc]};
   });
@@ -507,7 +529,10 @@ function compute(mech){
       let pl=0; const plList=[];
       for(const p of MD.payloads){
         const lv=t.payloads[p.name];
-        if(lv!=null&&lv>=0&&lv<p.levels.length){pl+=p.levels[lv].cost;plList.push(p.name+(p.levels.length>1?" ("+p.levels[lv].lab+")":""));}
+        if(lv!=null&&lv>=0&&lv<p.levels.length){
+          pl+=p.levels[lv].cost; sUsed+=p.s||0;
+          plList.push(p.name+(p.levels.length>1?" ("+p.levels[lv].lab+")":""));
+        }
       }
       const cost=MD.range.cost[t.range]+MD.size.cost[t.size]+MD.ammo.cost[t.ammo]+MD.duration.cost[t.dur]+pl;
       spent+=cost;
@@ -548,20 +573,27 @@ function compute(mech){
   if(haUsed>Hmax)warn.push(`Hardpoints: ${haUsed} used, max is ${Hmax}.`);
 
   // Derived stats (core rules), then the active variant's derive() hook
-  const eqN=name=>rmEq.has(name)?0:(mech.equipment[name]||0);
-  const plates=eqN("Armored Plates");
-  const sinks=eqN("Heat Sinks");
-  const radiators=eqN("Radiator");
+  const notes=[];
   const overdrive=eqN("Overdrive Engine")>0;
-  const dv=DATA.frame.baseDv+plates;
-  const heatCap=(overdrive?5:DATA.frame.baseHeatCap)+sinks*Math.ceil(Wmax/2);
-  const slam=Math.ceil(Wmax/2);
-  const cooling=2+radiators;   // heat removed per COOLING action
-  const credits=DATA.frame.baseCredits+fpUsed*DATA.frame.creditsPerFP;
+  const armorPack=eqN("Armor Pack")>0;         // packs never stack — copies only add ammo
+  const HP=HPbase+2*Wmax;                      // each weight rank adds 2 HP
+  const dv=DATA.frame.baseDv+(armorPack?2:0);
+  const heatCap=(overdrive?5:DATA.frame.baseHeatCap)+Math.floor(Emax/2)+2*eqN("Liquid Cooled");
+  const slam=wclassV;                          // slam damage = weight class value
+  const cooling=2+eqN("Radiator");             // heat removed per COOLING action
+  const hitBonus=Math.floor(S/4);              // every 4 systems ranks: +1 to hit
+  const sysDef=3+S+Math.min(3,eqN("Anti-Virus"));
+  const credits=DATA.frame.baseCredits+fpCredits(fpUsed);
+
+  notes.push(`${WC.name.toUpperCase()} frame (${fpUsed} FP${eqN("Min Frame")?" + Min Frame":""}${eqN("Max Frame")?" + Max Frame":""}): M ${WC.mo>0?"+":""}${WC.mo||"±0"} → ${M}${WC.note?"; "+WC.note:""}`);
+  notes.push(`HP ${HP} = ${HPbase} + ${2*Wmax} (2 per weight rank)`);
+  notes.push(`heat cap ${heatCap} (base ${overdrive?5:DATA.frame.baseHeatCap} + energy ${Emax} ÷ 2${eqN("Liquid Cooled")?" + Liquid Cooled":""})`);
+  if(hitBonus) notes.push(`weapon attacks +${hitBonus} to hit (systems ${S} ÷ 4)`);
+  if(armorPack) notes.push(`Dv ${dv} includes +2 from Armor Pack (spends 1 ammo per instance of damage taken)`);
 
   const d={warn,HP,Wmax,Emax,Hmax,M,S,fpUsed,wUsed,eUsed,sUsed,haUsed,
           weapons,missileKits,programKits,dv,heatCap,slam,cooling,
-          hitBonus:0,notes:[],credits,overdrive};
+          hitBonus,sysDef,wclass:WC.name,wclassV,notes,credits,overdrive};
   if(variant().derive) variant().derive(d);
   return d;
 }
@@ -574,9 +606,6 @@ function sel(path,labels,cur,costs,unit){
     return `<option value="${i}" ${i===cur?"selected":""}>${esc(l)}${c}</option>`;
   }).join("");
   return `<select data-path="${path}" data-num="1">${opts}</select>`;
-}
-function numIn(path,cur,max){
-  return `<input type="number" data-path="${path}" data-num="1" min="0" max="${max}" value="${cur}">`;
 }
 function chip(label,used,max,extra){
   const over=max!=null&&used>max;
@@ -620,7 +649,7 @@ function renderRoster(){
         <span class="rfp ${bad?"rbad":"rok"}">${c.credits} cr</span>
       </span>
       <span class="rstat">
-        <span>${c.fpUsed} FP</span><span>HP ${c.HP}</span><span>Dv ${c.dv}</span><span>M ${c.M}</span>
+        <span>${c.fpUsed} FP</span><span>${c.wclass}</span><span>HP ${c.HP}</span><span>Dv ${c.dv}</span><span>M ${c.M}</span>
         <span${c.wUsed>c.Wmax?' class="rbad"':""}>W ${c.wUsed}/${c.Wmax}</span>
         <span${c.eUsed>c.Emax?' class="rbad"':""}>E ${c.eUsed}/${c.Emax}</span>
         <span${c.haUsed>c.Hmax?' class="rbad"':""}>Ha ${c.haUsed}/${c.Hmax}</span>
@@ -665,13 +694,13 @@ function render(){
       <button data-act="mode" data-m="single" class="${mode==="single"?"on":""}">Single Mech</button>
       <button data-act="mode" data-m="warband" class="${mode==="warband"?"on":""}">Warband</button>
     </div>
-    <div class="rulesbar">
+    ${Object.keys(VARIANTS).length>1?`<div class="rulesbar">
       <label>Rules variant
         <select id="variantSel">${Object.keys(VARIANTS).map(k=>
           `<option value="${k}" ${k===variantKey?"selected":""}>${esc(VARIANTS[k].label)}</option>`).join("")}</select>
       </label>
       <span class="kv">${esc(variant().blurb||"")}</span>
-    </div>`;
+    </div>`:""}`;
 
   // Warband roster panel
   if(mode==="warband") h+=renderRoster();
@@ -702,6 +731,7 @@ function render(){
   h+=`<div class="bar no-print"><div class="wrap" style="padding:0"><div class="chips">
     ${wbChip}
     ${chip("FP",c.fpUsed,DATA.frame.fpMax)}
+    ${chip("Class",c.wclass,null)}
     ${chip("HP",c.HP,null)}
     ${chip("Weight",c.wUsed,c.Wmax)}
     ${chip("Energy",c.eUsed,c.Emax)}
@@ -722,16 +752,12 @@ function render(){
       <span class="lab">${st.label}</span>
       ${sel("frame."+k,st.vals,f[k],st.fp,"FP")}
       <span class="fp">${st.fp[f[k]]} FP</span>`;
-    if(!variant().noAltCosts){
-      if(k==="hp") h+=`<span class="alt">ranks paid with weight (2/W): ${numIn("frame.hpViaW",f.hpViaW,5)}</span>`;
-      if(k==="m")  h+=`<span class="alt">ranks via weight: ${numIn("frame.mViaW",f.mViaW,5)} &nbsp; via energy: ${numIn("frame.mViaE",f.mViaE,5)}</span>`;
-      if(k==="s")  h+=`<span class="alt">ranks via energy: ${numIn("frame.sViaE",f.sViaE,6)}</span>`;
-    }
+    if(st.note) h+=`<span class="alt">${esc(st.note)}</span>`;
     h+=`</div>`;
   }
-  h+=`<div class="kv" style="margin-top:8px">Frame cost: <b>${DATA.frame.baseCredits} cr</b> + ${c.fpUsed} FP × ${DATA.frame.creditsPerFP} cr = <b>${c.credits} credits</b>
-    &nbsp;•&nbsp; Slam attack: range 1, 1 shot, −2 acc, <b>${c.slam} dmg</b></div>`;
-  if(c.notes.length) h+=`<div class="kv" style="margin-top:4px"><b>${esc(variant().label)}:</b> ${c.notes.map(esc).join(" • ")}</div>`;
+  h+=`<div class="kv" style="margin-top:8px">Frame cost: <b>${DATA.frame.baseCredits} cr</b> + ${c.fpUsed} FP (1 cr each to 20, 2 cr for 21–40, 3 cr for 41–60) = <b>${c.credits} credits</b>
+    &nbsp;•&nbsp; Slam attack: range 1, 1 shot, −2 acc, <b>${c.slam} dmg</b> (weight class value)</div>`;
+  if(c.notes.length) h+=`<div class="kv" style="margin-top:4px"><b>Derived:</b> ${c.notes.map(esc).join(" • ")}</div>`;
   h+=`</div></div>`;
 
   // Equipment
@@ -743,7 +769,7 @@ function render(){
     const removed=rmEq.has(eq.name);
     if(removed&&n<=0) continue;   // hidden under this variant (still shown if equipped, so it can be removed)
     if(eq.cat!==lastCat){lastCat=eq.cat;h+=`<div class="eqcat">${esc(eq.cat)}</div>`;}
-    const cost=[eq.w?eq.w+"W":"",eq.e?eq.e+"E":"",eq.s?eq.s+"S":""].filter(Boolean).join(" ")||"free";
+    const cost=[eq.w?eq.w+"W":"",eq.e?eq.e+"E":"",eq.s?eq.s+"S":"",eq.ha?eq.ha+"Ha":""].filter(Boolean).join(" ")||"free";
     h+=`<div class="eqrow">
       <div class="eqinfo">
         <div><span class="eqname">${esc(eq.name)}</span><span class="eqcost">${cost} · limit ${eq.limit}${removed?` · <b>not in the ${esc(variant().label)} variant</b>`:""}</span></div>
@@ -759,7 +785,7 @@ function render(){
   // Weapons
   const WD=DATA.weapon;
   h+=`<div class="no-print"><h2>Weapon Kits <button data-act="addw" ${state.weapons.length>=WD.kitLimit?"disabled":""}>+ Add weapon kit</button></h2>`;
-  h+=`<div class="kv" style="margin-bottom:8px">Each kit costs 1W 1E + 1–3 hardpoints. 5 WP per hardpoint; up to 3 extra weight and 3 extra energy each give +1 WP. Optimal range band is ±2 hexes.</div>`;
+  h+=`<div class="kv" style="margin-bottom:8px">Each kit costs 1W 1E + 1–3 hardpoints. 5 WP per hardpoint; up to 3 extra weight and 3 extra energy each give +1 WP. Optimal range band is ±2 hexes. 3+ shots −1 to hit, 5+ −2, 7+ −3. A weapon designated <b>Melee</b> hits adjacent units only (no range costs) and swaps to the melee-only module list.</div>`;
   for(const W of c.weapons){
     const wp=W.wp,i=W.i;
     h+=`<div class="card kitcard">
@@ -779,13 +805,19 @@ function render(){
         <label>Damage ${sel(`weapons.${i}.dmg`,WD.damage.vals,wp.dmg,WD.damage.cost,"WP")}</label>
         <label>Accuracy ${sel(`weapons.${i}.acc`,WD.accuracy.vals.map(v=>"+"+v),wp.acc,WD.accuracy.cost,"WP")}</label>
       </div>
-      <div class="mods">${WD.modules.map(m=>{
-        const cost=[m.w?m.w+"W":"",m.e?m.e+"E":"",m.s?m.s+"S":"",m.wp?m.wp+"WP":"",m.melee?"Range=1":""].filter(Boolean).join(" ");
+      <div class="mods">${WD.modules.filter(m=>{
+        // show: the Melee toggle itself, mods legal for this weapon type, and
+        // any already-selected illegal mods (so they can be unchecked)
+        if(m.melee||wp.mods.includes(m.name)) return true;
+        return !m.allow||m.allow===(W.melee?"melee":"ranged");
+      }).map(m=>{
+        const cost=[m.w?m.w+"W":"",m.e?m.e+"E":"",m.s?m.s+"S":"",m.wp?m.wp+"WP":"",m.melee?"free":""].filter(Boolean).join(" ");
+        const bad=m.allow&&m.allow!==(W.melee?"melee":"ranged")&&wp.mods.includes(m.name);
         return `<label><input type="checkbox" data-mod="${esc(m.name)}" data-wi="${i}" ${wp.mods.includes(m.name)?"checked":""}>
-          ${esc(m.name)} <small>(${cost}) — ${esc(m.fx)}</small></label>`;}).join("")}
+          ${esc(m.name)} <small>(${cost}${m.allow==="melee"?", melee only":""}) — ${esc(m.fx)}${bad?" — <b>not legal on this weapon type</b>":""}</small></label>`;}).join("")}
       </div>
-      <div class="kv" style="margin-top:8px">Profile: <b>optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax}</b>
-        (band ${Math.max(1,W.rMin-2)}–${W.rMax+2}), <b>${W.shots} shot${W.shots>1?"s":""}</b>${W.shotPen?` (${W.shotPen} to hit)`:""},
+      <div class="kv" style="margin-top:8px">Profile: ${W.melee?`<b>melee</b> (adjacent only)`:`<b>optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax}</b>
+        (band ${Math.max(1,W.rMin-2)}–${W.rMax+2})`}, <b>${W.shots} shot${W.shots>1?"s":""}</b>${W.shotPen?` (${W.shotPen} to hit)`:""},
         <b>${W.dmg} dmg</b>, <b>+${W.acc} acc</b> &nbsp;•&nbsp; Cost: ${W.cw}W ${W.ce}E${W.cs?" "+W.cs+"S":""} ${wp.ha}Ha</div>
     </div>`;
   }
@@ -823,7 +855,7 @@ function render(){
         <div class="mods">${MD.payloads.map(p=>{
           const lv=t.payloads[p.name]??-1;
           const opts=[`<option value="-1" ${lv===-1?"selected":""}>—</option>`]
-            .concat(p.levels.map((L,x)=>`<option value="${x}" ${lv===x?"selected":""}>${esc(L.lab)} (${L.cost} MP)</option>`)).join("");
+            .concat(p.levels.map((L,x)=>`<option value="${x}" ${lv===x?"selected":""}>${esc(L.lab)} (${L.cost} MP${p.s?" + "+p.s+"S":""})</option>`)).join("");
           return `<label>${esc(p.name)} <select data-pl="${esc(p.name)}" data-i="${i}" data-j="${j}" data-num="1">${opts}</select>
             <small>${esc(p.fx)}</small></label>`;}).join("")}
         </div>
@@ -837,7 +869,7 @@ function render(){
   // Program kits
   const PD=DATA.program;
   h+=`<div class="no-print"><h2>Hacking Kits <button data-act="addpk" ${state.programKits.length>=PD.kitLimit?"disabled":""}>+ Add hacking kit</button></h2>`;
-  h+=`<div class="kv" style="margin-bottom:8px">Each kit costs 2E + 1–3 hardpoints. 5 PP per hardpoint (pooled); one program per hardpoint used; up to 3 extra energy per program gives +1 PP each. System defense = 3 + Systems. Mechs start with ½ ammo.</div>`;
+  h+=`<div class="kv" style="margin-bottom:8px">Each kit costs 2E + 1–3 hardpoints. 5 PP per hardpoint (pooled); one program per hardpoint used; up to 3 extra energy per program gives +1 PP each. System defense = 3 + Systems (+1 per Anti-Virus). Mechs start with ½ ammo.</div>`;
   for(const K of c.programKits){
     const pk=K.pk,i=K.i;
     h+=`<div class="card kitcard">
@@ -949,8 +981,12 @@ function render(){
     same length. If the page comes up blank after an edit, a comma or bracket went
     missing — undo the last change.</p>
     <p>Interpretations used (change the code if you rule differently): missile/program
-    points are pooled across a kit's hardpoints; Melee waives range WP costs; Heat Sinks
-    and slam damage use weight <i>maximum</i>, rounded up.</p>
+    points are pooled across a kit's hardpoints; Melee waives range WP costs; a "rank"
+    of weight/energy/systems means the stat's <i>value</i>, so +2 HP per weight rank is
+    2 × W (a base W 2 frame starts at HP 14), heat capacity is 10 + E ÷ 2 and the
+    weapon to-hit bonus is S ÷ 4 (both rounded down); Rapid's ½ M and Reactor Linked's
+    ½ E round up; pack copies only add ammo, so Armor Pack Dv and similar effects never
+    stack.</p>
     <p><b>Rule variants:</b> right below the game data is a <code>RULE VARIANTS</code>
     block. Each variant is a small named object — it can remove equipment and adjust the
     finished mech's derived numbers (HP, Dv, heat capacity, cooling, to-hit). Copy the
@@ -969,11 +1005,11 @@ function renderSummary(c,mech){
       ${c.wclass?`<b>${c.wclass}</b> &nbsp; `:""}<b>HP ${c.HP}</b> &nbsp; <b>Dv ${c.dv}</b> &nbsp; <b>M ${c.M}</b> &nbsp; <b>S ${c.S}</b> &nbsp;
       <b>Heat Cap ${c.heatCap}</b>${c.overdrive?" (Overdrive)":""} &nbsp; W ${c.wUsed}/${c.Wmax} &nbsp; E ${c.eUsed}/${c.Emax} &nbsp;
       Ha ${c.haUsed}/${c.Hmax} &nbsp; Sys ${c.sUsed}/${c.S}<br>
-      <b>${c.fpUsed} FP</b> • <b>${c.credits} credits</b> (frame ${DATA.frame.baseCredits} + FP) •
-      Slam: rng 1, 1 shot, −2 acc, ${c.slam} dmg • System defense ${3+c.S} •
+      <b>${c.fpUsed} FP</b> • <b>${c.credits} credits</b> (frame ${DATA.frame.baseCredits} + tiered FP) •
+      Slam: rng 1, 1 shot, −2 acc, ${c.slam} dmg • System defense ${c.sysDef} •
       COOLING removes ${c.cooling}${c.hitBonus?` • Weapon attacks +${c.hitBonus} to hit`:""}
     </div>`;
-  if(variantKey!=="core") s+=`<div class="kv" style="margin-top:4px"><b>Rules: ${esc(variant().label)}</b>${c.notes.length?" — "+c.notes.map(esc).join(" • "):""}</div>`;
+  s+=`<div class="kv" style="margin-top:4px">${variantKey!=="core"?`<b>Rules: ${esc(variant().label)}</b>${c.notes.length?" — ":""}`:""}${c.notes.map(esc).join(" • ")}</div>`;
   const eqList=DATA.equipment.filter(e=>(mech.equipment[e.name]||0)>0);
   if(eqList.length){
     s+=`<h3 style="margin-top:12px">Equipment</h3><ul>`;
@@ -983,8 +1019,8 @@ function renderSummary(c,mech){
   if(c.weapons.length){
     s+=`<h3>Weapons</h3><ul>`;
     for(const W of c.weapons){
-      s+=`<li><b>${esc(W.wp.name)}</b> (${W.wp.ha}Ha): optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax}
-        (band ${Math.max(1,W.rMin-2)}–${W.rMax+2}), ${W.shots} shot${W.shots>1?"s":""}${W.shotPen?" ("+W.shotPen+" to hit)":""},
+      s+=`<li><b>${esc(W.wp.name)}</b> (${W.wp.ha}Ha): ${W.melee?"melee (adjacent only)":`optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax}
+        (band ${Math.max(1,W.rMin-2)}–${W.rMax+2})`}, ${W.shots} shot${W.shots>1?"s":""}${W.shotPen?" ("+W.shotPen+" to hit)":""},
         ${W.dmg} dmg, +${W.acc} acc${W.mods.length?" — "+W.mods.map(m=>m.name).join(", "):""}</li>`;
     }
     s+=`</ul>`;
@@ -1056,15 +1092,34 @@ function savedOptions(){
   const names=Object.keys(b).sort();
   return `<option value="">— saved builds —</option>`+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
 }
+// Renames from older rulesets, applied when loading saves.
+const MOD_RENAMES={"Energetic":"Reactor Linked","Air Burst":"Zeroed"};
 // Fill in any fields missing from older saves / hand-edited JSON.
 function migrate(s){
   const d=defaultState();
   const out=Object.assign(d,s);
   out.frame=Object.assign(d.frame,s.frame||{});
-  out.equipment=Object.assign(d.equipment,s.equipment||{});
-  out.weapons=(s.weapons||[]).map((w,i)=>Object.assign(newWeapon(i+1),w));
+  // Alternative rank payments were removed in the 2026-08-05 rules.
+  delete out.frame.hpViaW; delete out.frame.mViaW; delete out.frame.mViaE; delete out.frame.sViaE;
+  // Clamp stat indices to the current tables (e.g. movement now tops out at 5).
+  for(const k in DATA.frame.stats)
+    out.frame[k]=Math.max(0,Math.min(DATA.frame.stats[k].vals.length-1,out.frame[k]||0));
+  // Only keep equipment that still exists (and within its current limit).
+  const eq={}; DATA.equipment.forEach(x=>{eq[x.name]=Math.max(0,Math.min(x.limit,(s.equipment||{})[x.name]||0));});
+  out.equipment=eq;
+  out.weapons=(s.weapons||[]).map((w,i)=>{
+    const nw=Object.assign(newWeapon(i+1),w);
+    nw.mods=(nw.mods||[]).map(m=>MOD_RENAMES[m]||m).filter(m=>DATA.weapon.modules.some(x=>x.name===m));
+    return nw;});
   out.missileKits=(s.missileKits||[]).map((k,i)=>{const nk=Object.assign(newMissileKit(i+1),k);
-    nk.types=(k.types||[]).map((t,j)=>Object.assign(newMissileType(j+1),t));return nk;});
+    nk.types=(k.types||[]).map((t,j)=>{
+      const nt=Object.assign(newMissileType(j+1),t);
+      // Drop stale payload picks (e.g. old 4-level Damaging) that no longer exist.
+      for(const p in nt.payloads){
+        const def=DATA.missile.payloads.find(x=>x.name===p);
+        if(!def||nt.payloads[p]>=def.levels.length) delete nt.payloads[p];
+      }
+      return nt;});return nk;});
   out.programKits=(s.programKits||[]).map((k,i)=>{const nk=Object.assign(newProgramKit(i+1),k);
     nk.types=(k.types||[]).map((t,j)=>Object.assign(newProgramType(j+1),t));return nk;});
   delete out.variant;   // rules-variant stamp on exports lives outside the mech

@@ -674,6 +674,7 @@ function renderRoster(){
       <button data-act="wbdel" class="danger">Delete</button>
       <button data-act="wbexport">Export warband JSON</button>
       <button data-act="wbimport">Import warband JSON</button>
+      <button data-act="wbexportTTS" title="Snapshot for the Tabletop Simulator mod — paste into its Import panel">Export for TTS</button>
       <input type="file" id="wbImportFile" accept=".json" style="display:none">
       <button data-act="wbreset" class="danger">New warband</button>
     </div>
@@ -998,6 +999,58 @@ function render(){
   document.getElementById("app").innerHTML=h;
 }
 
+// Plain-text sheet lines shared by the printable sheet and the TTS export,
+// so the two can never drift. Each returns the text after the bolded name.
+function weaponLine(W){
+  const range=W.melee?"melee (adjacent only)"
+    :`optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax} (band ${Math.max(1,W.rMin-2)}–${W.rMax+2})`;
+  return `${range}, ${W.shots} shot${W.shots>1?"s":""}${W.shotPen?" ("+W.shotPen+" to hit)":""}, `
+    +`${W.dmg} dmg, +${W.acc} acc${W.mods.length?" — "+W.mods.map(m=>m.name).join(", "):""}`;
+}
+function missileLine(T){
+  return `range ${DATA.missile.range.labels[T.t.range]}, ${DATA.missile.size.labels[T.t.size]}, `
+    +`ammo ${T.startAmmo}/${T.ammo}, duration ${DATA.missile.duration.vals[T.t.dur]} `
+    +`— ${T.plList.join(", ")||"no payload"} (reload ${T.reload} cr)`;
+}
+function programLine(T){
+  return `range ${DATA.program.range.labels[T.t.range]}, ammo ${T.startAmmo}/${T.ammo}, `
+    +`duration ${DATA.program.duration.vals[T.t.dur]}, +${DATA.program.bonus.vals[T.t.bonus]} bonus `
+    +`— ${T.fx?T.fx.name+": "+T.fx.fx:"no effect chosen"} (reload ${T.reload} cr)`;
+}
+
+// Display-ready snapshot for the Tabletop Simulator mod (tts/ in the repo).
+// The TTS importer renders these strings verbatim and seeds counters from the
+// ammo fields — it holds no game data, so rules changes never touch the Lua.
+function ttsExport(){
+  return {
+    format:"burning-steel-tts", ttsVersion:1,
+    name:warband.name||"Warband", budget:warband.budget, variant:variantKey,
+    mechs:warband.mechs.map(m=>{
+      const c=compute(m);
+      const eqList=DATA.equipment.filter(e=>(m.equipment[e.name]||0)>0);
+      return {
+        name:m.name, wclass:c.wclass,
+        stats:{hp:c.HP, dv:c.dv, m:c.M, s:c.S, heatCap:c.heatCap, overdrive:c.overdrive,
+               cooling:c.cooling, sysDef:c.sysDef, hitBonus:c.hitBonus, slamDmg:c.slam},
+        equipment:eqList.map(e=>{
+          const n=m.equipment[e.name], out={name:e.name, count:n, fx:e.fx};
+          if(e.cat.startsWith("Packs")) out.ammo=3*n;   // packs: 3 ammo per copy
+          return out;
+        }),
+        weapons:c.weapons.map(W=>({name:W.wp.name,
+          line:`${W.wp.name} (${W.wp.ha}Ha): ${weaponLine(W)}`})),
+        missiles:c.missileKits.flatMap(K=>K.types.map(T=>({
+          name:T.t.name, kit:K.mk.name, ammo:T.startAmmo, ammoMax:T.ammo,
+          line:`${T.t.name} (${K.mk.name}): ${missileLine(T)}`}))),
+        programs:c.programKits.flatMap(K=>K.types.map(T=>({
+          name:T.t.name, kit:K.pk.name, ammo:T.startAmmo, ammoMax:T.ammo,
+          line:`${T.t.name} (${K.pk.name}): ${programLine(T)}`}))),
+        notes:c.notes, warnings:c.warn,
+      };
+    }),
+  };
+}
+
 function renderSummary(c,mech){
   mech = mech || state;
   let s=`<div class="sheet"><h2 style="margin-top:0">${esc(mech.name)}</h2>
@@ -1019,27 +1072,21 @@ function renderSummary(c,mech){
   if(c.weapons.length){
     s+=`<h3>Weapons</h3><ul>`;
     for(const W of c.weapons){
-      s+=`<li><b>${esc(W.wp.name)}</b> (${W.wp.ha}Ha): ${W.melee?"melee (adjacent only)":`optimal ${W.rMin===W.rMax?W.rMin:W.rMin+"–"+W.rMax}
-        (band ${Math.max(1,W.rMin-2)}–${W.rMax+2})`}, ${W.shots} shot${W.shots>1?"s":""}${W.shotPen?" ("+W.shotPen+" to hit)":""},
-        ${W.dmg} dmg, +${W.acc} acc${W.mods.length?" — "+W.mods.map(m=>m.name).join(", "):""}</li>`;
+      s+=`<li><b>${esc(W.wp.name)}</b> (${W.wp.ha}Ha): ${esc(weaponLine(W))}</li>`;
     }
     s+=`</ul>`;
   }
   if(c.missileKits.length){
     s+=`<h3>Missiles</h3><ul>`;
     for(const K of c.missileKits) for(const T of K.types){
-      s+=`<li><b>${esc(T.t.name)}</b> (${esc(K.mk.name)}): range ${DATA.missile.range.labels[T.t.range]},
-        ${DATA.missile.size.labels[T.t.size]}, ammo ${T.startAmmo}/${T.ammo}, duration ${DATA.missile.duration.vals[T.t.dur]}
-        — ${T.plList.join(", ")||"no payload"} (reload ${T.reload} cr)</li>`;
+      s+=`<li><b>${esc(T.t.name)}</b> (${esc(K.mk.name)}): ${esc(missileLine(T))}</li>`;
     }
     s+=`</ul>`;
   }
   if(c.programKits.length){
     s+=`<h3>Programs</h3><ul>`;
     for(const K of c.programKits) for(const T of K.types){
-      s+=`<li><b>${esc(T.t.name)}</b> (${esc(K.pk.name)}): range ${DATA.program.range.labels[T.t.range]},
-        ammo ${T.startAmmo}/${T.ammo}, duration ${DATA.program.duration.vals[T.t.dur]}, +${DATA.program.bonus.vals[T.t.bonus]} bonus
-        — ${T.fx?esc(T.fx.name)+": "+esc(T.fx.fx):"no effect chosen"} (reload ${T.reload} cr)</li>`;
+      s+=`<li><b>${esc(T.t.name)}</b> (${esc(K.pk.name)}): ${esc(programLine(T))}</li>`;
     }
     s+=`</ul>`;
   }
@@ -1279,6 +1326,13 @@ document.addEventListener("click",e=>{
       a.click(); URL.revokeObjectURL(a.href);
       return;}
     case "wbimport": document.getElementById("wbImportFile").click(); return;
+    case "wbexportTTS":{
+      const blob=new Blob([JSON.stringify(ttsExport(),null,2)],{type:"application/json"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=(warband.name||"warband").replace(/[^\w\- ]+/g,"")+".tts.json";
+      a.click(); URL.revokeObjectURL(a.href);
+      return;}
 
     // ---- whole-library backup ----
     case "backup":{

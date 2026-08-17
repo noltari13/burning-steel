@@ -10,8 +10,10 @@ function onLoad(saved)
       renderTemplates()
     end
   end
+  registerTemplateHotkeys()
   print("Burning Steel mod loaded (assets " .. ASSET_VERSION .. "). " ..
-        "Toolbar: Import Warband / Round Setup / templates / Attack Roller.")
+        "Toolbar: Import Warband / Round Setup / templates / Attack Roller. " ..
+        "Bind template keys in Options > Game Keys.")
 end
 
 function onSave()

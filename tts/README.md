@@ -54,12 +54,17 @@ save/BurningSteel.json   the deliverable (checked in)
   DEAD mech, and pass cards to the side with fewer cards. Cards come from the
   three tagged infinite bags on the table — don't delete them. Lay used cards
   left→right as the timeline.
-- **T / S / M / L** buttons: draw an area template as colored hex outlines at
-  the hex under your mouse pointer — no physical object, so nothing covers
-  models or terrain. **Clear** removes your most recent template (right-click:
-  all of them). Templates survive save/load. If outlines sit consistently
-  off the hexes, tune `GRID_OFFSET_X/Z` in `src/global/50_templates.lua`.
-  (The old template PNGs remain in `assets/png/` but are no longer used.)
+- **Area templates**: colored hex outlines drawn on the board — no physical
+  object, so nothing covers models or terrain. Place them with **hotkeys**:
+  in TTS, **Options → Game Keys**, scroll to the scripted entries
+  ("Template: Targeted hex / Small / Medium / Large / clear my latest") and
+  bind keys (e.g. 1–4 and 0), then press the key while hovering the target
+  hex. The toolbar **T/S/M/L** buttons also work but place at wherever the
+  pointer ray lands while you're on the UI, so prefer the hotkeys. **Clear**
+  removes your most recent template (right-click: all). Templates survive
+  save/load. If outlines sit consistently off the hexes, tune
+  `GRID_OFFSET_X/Z` in `src/global/50_templates.lua`. (The old template PNGs
+  remain in `assets/png/` but are no longer used.)
 - **Attack Roller**: shots, accuracy, target Dv, damage per shot → per-die
   results and total damage in chat. Dv includes evasion/cover; accuracy
   includes the mech's to-hit bonus (both printed on the stat tile).

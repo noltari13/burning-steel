@@ -57,14 +57,11 @@ local function hexOutline(q, r, y, ring)
   }
 end
 
-function uiTemplate(player, _, id)
-  local key = id:gsub("^tpl_", "")
+function placeTemplate(color, key, pos)
   local radius = TEMPLATE_RADII[key]
-  if radius == nil then return end
-  local p = player.getPointerPosition and player.getPointerPosition()
-  if p == nil then p = {x = 0, y = 1, z = 0} end
-  local cq, cr = worldToAxial(p.x, p.z)
-  local y = (p.y or 1) + 0.08
+  if radius == nil or pos == nil then return end
+  local cq, cr = worldToAxial(pos.x, pos.z)
+  local y = (pos.y or 1) + 0.08
   local lines = {}
   for dq = -radius, radius do
     for dr = math.max(-radius, -dq - radius), math.min(radius, -dq + radius) do
@@ -72,22 +69,50 @@ function uiTemplate(player, _, id)
       table.insert(lines, hexOutline(cq + dq, cr + dr, y, ring))
     end
   end
-  table.insert(TEMPLATES_LIVE, {owner = player.color, key = key, lines = lines})
+  table.insert(TEMPLATES_LIVE, {owner = color, key = key, lines = lines})
   renderTemplates()
+end
+
+function clearLatestTemplate(color)
+  for i = #TEMPLATES_LIVE, 1, -1 do
+    if TEMPLATES_LIVE[i].owner == color then
+      table.remove(TEMPLATES_LIVE, i)
+      renderTemplates()
+      return
+    end
+  end
+end
+
+-- Toolbar path (pointer sits on the UI when clicking, so the hex under it
+-- is a guess — hotkeys below are the reliable way to place).
+function uiTemplate(player, _, id)
+  local p = player.getPointerPosition and player.getPointerPosition()
+  placeTemplate(player.color, id:gsub("^tpl_", ""), p or {x = 0, y = 1, z = 0})
 end
 
 function uiTemplateClear(player, mouseButton)
   if mouseButton == "-2" then          -- right-click: clear everything
     TEMPLATES_LIVE = {}
+    renderTemplates()
   else                                 -- left-click: your most recent
-    for i = #TEMPLATES_LIVE, 1, -1 do
-      if TEMPLATES_LIVE[i].owner == player.color then
-        table.remove(TEMPLATES_LIVE, i)
-        break
-      end
-    end
+    clearLatestTemplate(player.color)
   end
-  renderTemplates()
+end
+
+-- Scripted hotkeys: bind keys in Options > Game Keys. The callback hands
+-- us the pointer's world position, so you place while hovering the hex.
+function registerTemplateHotkeys()
+  local order = {"targeted", "small", "medium", "large"}
+  local labels = {targeted = "Targeted hex", small = "Small area",
+                  medium = "Medium area", large = "Large area"}
+  for _, key in ipairs(order) do
+    addHotkey("Template: " .. labels[key], function(color, _, pos, isKeyUp)
+      if not isKeyUp then placeTemplate(color, key, pos) end
+    end)
+  end
+  addHotkey("Template: clear my latest", function(color, _, _, isKeyUp)
+    if not isKeyUp then clearLatestTemplate(color) end
+  end)
 end
 
 function renderTemplates()

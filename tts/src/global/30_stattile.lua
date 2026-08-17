@@ -3,6 +3,10 @@
 -- The tile reads its mech snapshot from GM Notes (immutable) and keeps
 -- mutable counters in script_state, so state survives save/load and
 -- copy/paste. Kept as one self-contained string: TTS has no require().
+-- A tile can be LINKED to a miniature: the mini gets the sheet as its
+-- hover description, a live name (HP/heat), a right-click bookkeeping
+-- menu, and an overheat highlight. Link = press Link, then pick up (or
+-- pre-select) the model. The link is a GUID in script_state.
 -- ==================================================================
 STATTILE_SCRIPT = [==[
 -- Burning Steel stat tile (injected by the warband importer)
@@ -10,6 +14,7 @@ local SX, SY, SZ = 3.4, 0.2, 4.4   -- must match TILE_S* in Global 00_config
 local BASE_TINT = {0.85, 0.85, 0.82}
 local HOT_TINT  = {1.00, 0.42, 0.35}
 local DEAD_TINT = {0.28, 0.28, 0.28}
+local LINK_BTN = 2                 -- creation index of the Link button
 local sheet, state
 local rows = {}          -- {label, kind, key, max, step, valueBtn}
 
@@ -27,6 +32,10 @@ function onLoad(saved)
   buildRows()
   buildButtons()
   applyTint()
+  if state.link then
+    -- linked model may not have loaded yet; context menus don't persist
+    Wait.frames(function() applyLink(true) end, 3)
+  end
 end
 
 function onSave()
@@ -82,14 +91,20 @@ local function W(u) return math.floor(u * 500) end
 function buildButtons()
   self.clearButtons()
   self.createButton({click_function = "toggleDead", function_owner = self,
-    label = state.dead and "DEAD" or "alive", position = bpos(1.25, -1.85),
-    scale = BSCALE, width = W(0.8), height = W(0.34), font_size = W(0.16),
+    label = state.dead and "DEAD" or "alive", position = bpos(1.35, -1.85),
+    scale = BSCALE, width = W(0.62), height = W(0.34), font_size = W(0.15),
     color = state.dead and {0.5, 0.1, 0.1} or {0.2, 0.4, 0.2}, font_color = {1, 1, 1},
     tooltip = "Toggle destroyed. A destroyed mech makes a partial order card each round."})
-  self.createButton({click_function = "noop", function_owner = self,
-    label = trim(sheet.name or "Mech", 20), position = bpos(-0.5, -1.85),
-    scale = BSCALE, width = W(2.3), height = W(0.36), font_size = W(0.17),
-    color = {0.15, 0.15, 0.18}, font_color = {1, 1, 1}, tooltip = "Hover the tile for the full sheet."})
+  self.createButton({click_function = "pingMini", function_owner = self,
+    label = trim(sheet.name or "Mech", 16), position = bpos(-0.85, -1.85),
+    scale = BSCALE, width = W(1.6), height = W(0.36), font_size = W(0.16),
+    color = {0.15, 0.15, 0.18}, font_color = {1, 1, 1},
+    tooltip = "Hover the tile for the full sheet. Click to flash the linked model."})
+  self.createButton({click_function = "linkClicked", function_owner = self,
+    label = state.link and "Unlink" or "Link", position = bpos(0.5, -1.85),
+    scale = BSCALE, width = W(0.62), height = W(0.34), font_size = W(0.14),
+    color = {0.2, 0.3, 0.5}, font_color = {1, 1, 1},
+    tooltip = "Tie this sheet to a miniature: select the model (or press, then pick the model up)."})
   local z0, z1 = -1.3, 1.95
   local step = 0.46
   if #rows > 1 then step = math.min(0.46, (z1 - z0) / (#rows - 1)) end
@@ -123,12 +138,19 @@ function adjust(i, d)
   local row = rows[i]
   local v = getVal(row) + d
   if v < 0 then v = 0 end
-  if row.kind == "ammo" and v > row.max then v = row.max end
-  if row.kind == "hp" and v > row.max then v = row.max end
+  if (row.kind == "ammo" or row.kind == "hp") and v > row.max then v = row.max end
   if row.kind == "hp" then setHP(v)
   elseif row.kind == "heat" then setHeat(v)
   else state.ammo[row.key] = v end
   self.editButton({index = row.valueBtn, label = v .. "/" .. row.max})
+  updateMini()
+end
+
+-- Nudge a counter from the linked model's context menu.
+function nudge(kind, d)
+  for i, row in ipairs(rows) do
+    if row.kind == kind then adjust(i, d); return end
+  end
 end
 
 -- "Always round up": half of 42 HP is 21, a quarter of 42 is 11.
@@ -175,6 +197,7 @@ function toggleDead()
   state.dead = not state.dead
   refreshDeadButton()
   applyTint()
+  updateMini()
   broadcastToAll(self.getName() .. (state.dead
     and " marked DESTROYED — it makes a partial order card each round."
     or  " is back in play."), {1, 0.75, 0.3})
@@ -189,5 +212,99 @@ function applyTint()
   if state.dead then self.setColorTint(DEAD_TINT)
   elseif state.hot then self.setColorTint(HOT_TINT)
   else self.setColorTint(BASE_TINT) end
+  local mini = linkedMini()
+  if mini then
+    if state.hot and not state.dead then mini.highlightOn({1, 0.35, 0.25})
+    else mini.highlightOff() end
+  end
+end
+
+-- ---------------- model linking ----------------
+function linkedMini()
+  if state == nil or state.link == nil then return nil end
+  return getObjectFromGUID(state.link)
+end
+
+function linkClicked(_, playerColor)
+  if state.link then unlink(); return end
+  -- shortcut: if the player already has a model selected, link it now
+  local p = Player[playerColor]
+  if p ~= nil then
+    for _, o in ipairs(p.getSelectedObjects() or {}) do
+      if o ~= self and not o.hasTag("BS_MECH") then
+        completeLink({guid = o.getGUID()})
+        return
+      end
+    end
+  end
+  Global.call("bsRequestLink", {tile = self, color = playerColor})
+end
+
+-- called by Global when the player picks a model up (link flow)
+function completeLink(p)
+  state.link = p.guid
+  applyLink(false)
+end
+
+function applyLink(silent)
+  local mini = linkedMini()
+  if mini == nil then
+    state.link = nil
+    refreshLinkButton()
+    return
+  end
+  mini.setDescription(self.getDescription())
+  mini.addTag("BS_LINKED")
+  mini.clearContextMenu()
+  mini.addContextMenuItem("-1 HP",   function() nudge("hp", -1) end, true)
+  mini.addContextMenuItem("+1 HP",   function() nudge("hp", 1) end, true)
+  mini.addContextMenuItem("+1 Heat", function() nudge("heat", 1) end, true)
+  mini.addContextMenuItem("-1 Heat", function() nudge("heat", -1) end, true)
+  mini.addContextMenuItem("Cooling (-" .. (sheet.stats.cooling or 2) .. ")",
+    function() nudge("heat", -(sheet.stats.cooling or 2)) end)
+  mini.addContextMenuItem("Unlink sheet", function() unlink() end)
+  refreshLinkButton()
+  updateMini()
+  applyTint()
+  if not silent then
+    broadcastToAll(sheet.name .. " linked to a model — hover the model for its sheet; right-click it for counters.", {0.8, 0.9, 1})
+  end
+end
+
+function unlink()
+  local mini = linkedMini()
+  if mini then
+    mini.clearContextMenu()
+    mini.removeTag("BS_LINKED")
+    mini.highlightOff()
+  end
+  state.link = nil
+  refreshLinkButton()
+  broadcastToAll(sheet.name .. " unlinked from its model.", {0.8, 0.9, 1})
+end
+
+function refreshLinkButton()
+  self.editButton({index = LINK_BTN, label = state.link and "Unlink" or "Link"})
+end
+
+-- live name on the mini: current HP/heat at a glance
+function updateMini()
+  local mini = linkedMini()
+  if mini == nil then return end
+  local nm
+  if state.dead then
+    nm = "[DESTROYED] " .. sheet.name
+  else
+    nm = sheet.name .. " [" .. (sheet.wclass or "?") .. "] — " ..
+         state.hp .. "/" .. sheet.stats.hp .. " HP, " ..
+         state.heat .. "/" .. sheet.stats.heatCap .. " heat"
+  end
+  mini.setName(nm)
+end
+
+function pingMini()
+  local mini = linkedMini()
+  if mini == nil then return end
+  mini.highlightOn({0.3, 0.7, 1}, 3)
 end
 ]==]

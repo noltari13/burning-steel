@@ -73,13 +73,14 @@ function dealFromBag(bagTag, count, color)
     end
     return
   end
-  local ht = Player[color].getHandTransform()
+  -- deal() puts the card in the hand with the correct facing; dropping it
+  -- at the hand position by rotation guesswork faced cards away from players.
+  local above = bag.getPosition()
   for i = 1, count do
-    local pos = ht and {
-      x = ht.position.x + ht.right.x * (i - 1) * 0.3,
-      y = ht.position.y + 0.5 + i * 0.3,
-      z = ht.position.z + ht.right.z * (i - 1) * 0.3,
-    } or { x = 0, y = 3 + i, z = 0 }
-    bag.takeObject({ position = pos, rotation = ht and ht.rotation or { 0, 180, 0 }, smooth = false })
+    bag.takeObject({
+      position = { above.x, above.y + 1 + i * 0.4, above.z },
+      smooth = false,
+      callback_function = function(o) o.deal(1, color) end,
+    })
   end
 end

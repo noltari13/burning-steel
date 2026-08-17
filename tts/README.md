@@ -43,6 +43,12 @@ save/BurningSteel.json   the deliverable (checked in)
   HP / heat / every ammo pool (right-click ± for bigger steps). The tile
   announces ½ HP, ¼ HP and overheating, turns red while overheating, and has a
   DEAD toggle.
+- **Link a model**: press **Link** on a stat tile, then pick up your miniature
+  (or select the mini first for an instant link). The model gets the sheet as
+  its hover description, a live name showing current HP/heat, a right-click
+  menu (±HP, ±heat, Cooling, Unlink) and a red highlight while overheating;
+  clicking the tile's name bar flashes the linked model. Links survive
+  save/load, but a *replaced* model (new copy from a bag) must be re-linked.
 - **Round Setup** (toolbar): deals each seated color 1 order card per live
   mech (Overdrive mechs get 2, and none when destroyed), 1 partial order per
   DEAD mech, and pass cards to the side with fewer cards. Cards come from the
@@ -64,7 +70,11 @@ save/BurningSteel.json   the deliverable (checked in)
 Fast path (all from WSL):
 
 1. Edit `src/global/*.lua` or `src/Global.xml`.
-2. `scripts/bundle.sh && scripts/deploy.sh`
+2. `scripts/bundle.sh && python3 scripts/update_save.py`
+   — patches the **deployed** save in place: only the scripts change; your
+   table, minis and spawned tiles (with their counter state) are preserved.
+   Add `--local` for file:/// assets. Use `scripts/deploy.sh` instead only
+   when you want to reset the table to the generated baseline.
 3. In TTS, load the save again (Games → Save & Load → BurningSteel).
 
 Comfortable path (live reload, recommended once you're editing often):

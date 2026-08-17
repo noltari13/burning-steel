@@ -10,14 +10,27 @@ TTS fills in any fields a save file omits, so this stays minimal on purpose.
 import json
 import pathlib
 import re
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# --local: use file:/// URLs to the repo's own PNGs instead of GitHub Pages.
+# Only works on this machine (fine for solo testing; rebuild without the flag
+# for anything you'll play with someone else or publish).
+LOCAL = "--local" in sys.argv
+
 ASSET_BASE = None
 for line in (ROOT / "src/global/00_config.lua").read_text().splitlines():
     m = re.match(r'ASSET_VERSION\s*=\s*"([^"]+)"', line.strip())
     if m:
-        ASSET_BASE = ("https://noltari13.github.io/burning-steel/tts/assets/png/"
-                      + m.group(1))
+        if LOCAL:
+            win_path = str(ROOT / "assets/png" / m.group(1))
+            win_path = re.sub(r"^/mnt/([a-z])", lambda w: w.group(1).upper() + ":",
+                              win_path)
+            ASSET_BASE = "file:///" + win_path
+        else:
+            ASSET_BASE = ("https://noltari13.github.io/burning-steel/tts/assets/png/"
+                          + m.group(1))
 if not ASSET_BASE:
     raise SystemExit("ASSET_VERSION not found in 00_config.lua")
 
@@ -123,7 +136,10 @@ save = {
         "ySize": GRID_X,
         "PosOffset": {"x": 0.0, "y": 1.0, "z": 0.0},
     },
-    "LuaScript": (ROOT / "build/Global.lua").read_text(),
+    # In --local mode the Lua config's ASSET_BASE (used for spawning
+    # templates) is overridden after the bundle, same URL as the objects.
+    "LuaScript": (ROOT / "build/Global.lua").read_text()
+    + (f'\nASSET_BASE = "{ASSET_BASE}"  -- --local build\n' if LOCAL else ""),
     "LuaScriptState": "",
     "XmlUI": (ROOT / "src/Global.xml").read_text(),
     "ObjectStates": objects,
@@ -131,4 +147,5 @@ save = {
 
 out = ROOT / "save/BurningSteel.json"
 out.write_text(json.dumps(save, indent=2))
-print(f"Wrote {out} ({out.stat().st_size // 1024} KB, {len(objects)} objects)")
+mode = "LOCAL file:/// assets (this machine only)" if LOCAL else "GitHub Pages assets"
+print(f"Wrote {out} ({out.stat().st_size // 1024} KB, {len(objects)} objects, {mode})")

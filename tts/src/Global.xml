@@ -6,20 +6,22 @@
 </Defaults>
 
 <!-- Toolbar -->
-<Panel id="toolbar" rectAlignment="MiddleRight" offsetXY="-8 0" width="130" height="290"
+<Panel id="toolbar" rectAlignment="MiddleRight" offsetXY="-8 0" width="130" height="340"
        color="#20242Ccc" padding="6 6 6 6">
   <VerticalLayout spacing="5">
     <Text fontSize="15" fontStyle="Bold" alignment="MiddleCenter">Burning Steel</Text>
     <Button onClick="uiImportOpen">Import Warband</Button>
     <Button onClick="uiRoundSetup">Round Setup</Button>
     <Button onClick="uiAttackOpen">Attack Roller</Button>
-    <Text alignment="MiddleCenter" fontSize="12">Area templates</Text>
+    <Text alignment="MiddleCenter" fontSize="12">Area templates
+(drawn at your pointer)</Text>
     <HorizontalLayout spacing="4">
-      <Button id="tpl_targeted" onClick="uiTemplate" fontSize="12">T</Button>
-      <Button id="tpl_small" onClick="uiTemplate" fontSize="12">S</Button>
-      <Button id="tpl_medium" onClick="uiTemplate" fontSize="12">M</Button>
-      <Button id="tpl_large" onClick="uiTemplate" fontSize="12">L</Button>
+      <Button id="tpl_targeted" onClick="uiTemplate" fontSize="12" tooltip="Targeted hex — outline drawn at the hex under your pointer">T</Button>
+      <Button id="tpl_small" onClick="uiTemplate" fontSize="12" tooltip="Small area">S</Button>
+      <Button id="tpl_medium" onClick="uiTemplate" fontSize="12" tooltip="Medium area">M</Button>
+      <Button id="tpl_large" onClick="uiTemplate" fontSize="12" tooltip="Large area">L</Button>
     </HorizontalLayout>
+    <Button onClick="uiTemplateClear" fontSize="12" tooltip="Remove your latest template. Right-click: clear all.">Clear</Button>
   </VerticalLayout>
 </Panel>
 

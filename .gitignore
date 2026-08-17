@@ -7,3 +7,9 @@
 !README.md
 !index.html
 !mech_calculator_v2.html
+
+# Tabletop Simulator mod: sources + generated PNGs (served by GitHub Pages —
+# TTS loads card/template images from this repo's Pages site).
+!tts/
+!tts/**
+tts/build/

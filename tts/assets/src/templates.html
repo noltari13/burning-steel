@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Burning Steel — area template generator</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#222;color:#eee;padding:16px}
+  .tpl{display:inline-block;margin:12px;text-align:center;vertical-align:top}
+  canvas{background:repeating-conic-gradient(#333 0 25%,#3a3a3a 0 50%) 0 0/24px 24px;max-width:340px;height:auto}
+  a{color:#8cf;display:block;margin-top:6px}
+  pre{background:#111;padding:10px}
+</style>
+</head>
+<body>
+<h1>Area templates</h1>
+<p>Nested-ring hex overlays (Area Sizes rules): Targeted = red hex; Small adds light red;
+Medium adds orange; Large adds yellow. Flat-top hexes, transparent background.
+Regenerate whenever the rules' area shapes change, then publish to
+<code>tts/assets/png/&lt;next version&gt;/</code> — never overwrite a published version
+(TTS caches images by URL forever).</p>
+<div id="out"></div>
+<h2>Lua constants</h2>
+<p>Paste into <code>TEMPLATE_SPANS</code> in <code>tts/src/global/50_templates.lua</code>
+(span = image side in hex-widths; world scale = span × GRID_X / 2):</p>
+<pre id="spans"></pre>
+
+<script>
+const S = 128;                 // hex corner radius, px
+const HEXW = 2 * S;            // flat-top hex width (corner to corner)
+const HEXH = Math.sqrt(3) * S; // flat-top hex height (flat to flat)
+const RING_FILL = ["#e5484dcc", "#f4999dbb", "#f5a623bb", "#f7d154bb"];
+const RING_EDGE = "#00000088";
+
+// All hexes within axial distance r of the origin, flat-top layout.
+function cluster(r){
+  const out = [];
+  for (let q = -r; q <= r; q++)
+    for (let rr = Math.max(-r, -q - r); rr <= Math.min(r, -q + r); rr++)
+      out.push({q, r: rr, ring: (Math.abs(q) + Math.abs(rr) + Math.abs(-q - rr)) / 2});
+  return out;
+}
+const center = h => ({x: 1.5 * S * h.q, y: HEXH * (h.r + h.q / 2)});
+
+function hexPath(ctx, cx, cy){
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++){
+    const a = Math.PI / 3 * i;          // flat-top: corner at angle 0
+    const x = cx + S * Math.cos(a), y = cy + S * Math.sin(a);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+
+const TEMPLATES = [
+  {key: "targeted", label: "Targeted hex", r: 0},
+  {key: "small",    label: "Small area",   r: 1},
+  {key: "medium",   label: "Medium area",  r: 2},
+  {key: "large",    label: "Large area",   r: 3},
+];
+
+const spans = {};
+for (const t of TEMPLATES){
+  const hexes = cluster(t.r);
+  let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+  for (const h of hexes){
+    const c = center(h);
+    minX = Math.min(minX, c.x - HEXW / 2); maxX = Math.max(maxX, c.x + HEXW / 2);
+    minY = Math.min(minY, c.y - HEXH / 2); maxY = Math.max(maxY, c.y + HEXH / 2);
+  }
+  const side = Math.ceil(Math.max(maxX - minX, maxY - minY)) + 8; // square, small pad
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = side;
+  const ctx = cv.getContext("2d");
+  hexes.sort((a, b) => b.ring - a.ring); // draw outer rings first
+  for (const h of hexes){
+    const c = center(h);
+    const cx = side / 2 + c.x, cy = side / 2 + c.y;
+    hexPath(ctx, cx, cy);
+    ctx.fillStyle = RING_FILL[h.ring];
+    ctx.fill();
+    ctx.strokeStyle = RING_EDGE;
+    ctx.lineWidth = 5;
+    ctx.stroke();
+  }
+  spans[t.key] = side / HEXW;
+
+  const div = document.createElement("div");
+  div.className = "tpl";
+  const a = document.createElement("a");
+  a.id = "dl_template_" + t.key;
+  a.download = "template_" + t.key + ".png";
+  a.href = cv.toDataURL("image/png");
+  a.textContent = "Download template_" + t.key + ".png";
+  div.appendChild(cv); div.appendChild(a);
+  const cap = document.createElement("div");
+  cap.textContent = t.label + " — " + side + "px, span " + spans[t.key].toFixed(4) + " hex widths";
+  div.appendChild(cap);
+  document.getElementById("out").appendChild(div);
+}
+document.getElementById("spans").textContent =
+  "TEMPLATE_SPANS = { " + TEMPLATES.map(t =>
+    t.key + " = " + spans[t.key].toFixed(4)).join(", ") + " }";
+window.SPANS = spans;
+</script>
+</body>
+</html>

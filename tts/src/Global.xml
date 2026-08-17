@@ -1,0 +1,67 @@
+<!-- Burning Steel — Global XML UI (toolbar + importer + attack helper) -->
+<Defaults>
+  <Button fontSize="14" color="#3A3F4B" textColor="#FFFFFF" />
+  <Text color="#FFFFFF" fontSize="14" />
+  <InputField fontSize="14" />
+</Defaults>
+
+<!-- Toolbar -->
+<Panel id="toolbar" rectAlignment="MiddleRight" offsetXY="-8 0" width="130" height="290"
+       color="#20242Ccc" padding="6 6 6 6">
+  <VerticalLayout spacing="5">
+    <Text fontSize="15" fontStyle="Bold" alignment="MiddleCenter">Burning Steel</Text>
+    <Button onClick="uiImportOpen">Import Warband</Button>
+    <Button onClick="uiRoundSetup">Round Setup</Button>
+    <Button onClick="uiAttackOpen">Attack Roller</Button>
+    <Text alignment="MiddleCenter" fontSize="12">Area templates</Text>
+    <HorizontalLayout spacing="4">
+      <Button id="tpl_targeted" onClick="uiTemplate" fontSize="12">T</Button>
+      <Button id="tpl_small" onClick="uiTemplate" fontSize="12">S</Button>
+      <Button id="tpl_medium" onClick="uiTemplate" fontSize="12">M</Button>
+      <Button id="tpl_large" onClick="uiTemplate" fontSize="12">L</Button>
+    </HorizontalLayout>
+  </VerticalLayout>
+</Panel>
+
+<!-- Warband importer -->
+<Panel id="importPanel" active="false" rectAlignment="MiddleCenter" width="640" height="460"
+       color="#20242C" padding="10 10 10 10" allowDragging="true" returnToOriginalPositionWhenReleased="false">
+  <VerticalLayout spacing="8">
+    <Text fontSize="16" fontStyle="Bold">Import warband</Text>
+    <Text fontSize="12">In the builder (Warband mode), click "Export for TTS", open the downloaded
+.tts.json in a text editor, copy everything, and paste it below.</Text>
+    <InputField id="importText" lineType="MultiLineNewLine" placeholder="Paste the .tts.json contents here…"
+                onValueChanged="onImportTextChanged" onEndEdit="onImportTextChanged"
+                flexibleHeight="1" preferredHeight="280" />
+    <HorizontalLayout spacing="8" preferredHeight="36" flexibleHeight="0">
+      <Button onClick="uiImportConfirm" color="#2E7D32">Import</Button>
+      <Button onClick="uiImportClose">Cancel</Button>
+    </HorizontalLayout>
+  </VerticalLayout>
+</Panel>
+
+<!-- Attack helper -->
+<Panel id="attackPanel" active="false" rectAlignment="MiddleCenter" offsetXY="0 -120" width="340" height="240"
+       color="#20242C" padding="10 10 10 10" allowDragging="true" returnToOriginalPositionWhenReleased="false">
+  <VerticalLayout spacing="6">
+    <Text fontSize="16" fontStyle="Bold">Attack roller</Text>
+    <HorizontalLayout spacing="6" preferredHeight="30">
+      <Text>Shots</Text>
+      <InputField id="atk_shots" text="1" characterValidation="Integer" onEndEdit="onAttackInput" />
+      <Text>Accuracy</Text>
+      <InputField id="atk_acc" text="0" characterValidation="Integer" onEndEdit="onAttackInput" />
+    </HorizontalLayout>
+    <HorizontalLayout spacing="6" preferredHeight="30">
+      <Text>Target Dv</Text>
+      <InputField id="atk_dv" text="3" characterValidation="Integer" onEndEdit="onAttackInput" />
+      <Text>Dmg/shot</Text>
+      <InputField id="atk_dmg" text="0" characterValidation="Integer" onEndEdit="onAttackInput" />
+    </HorizontalLayout>
+    <Text fontSize="11">Accuracy = weapon acc + to-hit bonuses − penalties. Dv includes evasion and cover.
+Dmg 0 prints multipliers only.</Text>
+    <HorizontalLayout spacing="8" preferredHeight="36" flexibleHeight="0">
+      <Button onClick="uiAttackRoll" color="#2E7D32">Roll</Button>
+      <Button onClick="uiAttackClose">Close</Button>
+    </HorizontalLayout>
+  </VerticalLayout>
+</Panel>

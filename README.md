@@ -53,3 +53,11 @@ Reactor Linked, Air Burst → Zeroed), equipment that no longer exists
 stripped — the validation panel flags anything that no longer fits.
 
 `mech_calculator_v2.html` is the earlier single-mech-only version, kept for reference.
+
+## Tabletop Simulator
+
+The `tts/` folder holds a Tabletop Simulator mod for playing Burning Steel
+online: build a warband here, click **Export for TTS** (Warband mode), and
+paste the file into the mod's Import panel to get scripted stat sheets with
+HP/heat/ammo counters, order-card dealing, area templates and an attack
+roller. See `tts/README.md` for setup.

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Burning Steel — terrain texture generator</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#222;color:#eee;padding:16px}
+  .tile{display:inline-block;margin:10px;text-align:center;vertical-align:top}
+  canvas{max-width:200px;height:auto;background:repeating-conic-gradient(#333 0 25%,#3a3a3a 0 50%) 0 0/24px 24px}
+  a{color:#8cf;display:block;margin-top:6px}
+</style>
+</head>
+<body>
+<h1>Terrain textures</h1>
+<p>Optional hex-tile faces (flat-top, transparent corners) for Custom_Tile terrain, plus a
+structure block texture. Stock TTS blocks work fine too — these just look nicer. Publish to
+a NEW <code>tts/assets/png/&lt;version&gt;/</code> folder when changed.</p>
+<div id="out"></div>
+
+<script>
+const SIDE = 512, S = SIDE / 2;
+
+function make(name, draw){
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = SIDE;
+  draw(cv.getContext("2d"));
+  const div = document.createElement("div");
+  div.className = "tile";
+  const a = document.createElement("a");
+  a.id = "dl_" + name; a.download = name + ".png"; a.href = cv.toDataURL("image/png");
+  a.textContent = name + ".png";
+  div.appendChild(cv); div.appendChild(a);
+  document.getElementById("out").appendChild(div);
+}
+
+function hexPath(ctx, inset){
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++){
+    const a = Math.PI / 3 * i;   // flat-top
+    const x = S + (S - inset) * Math.cos(a), y = S + (S - inset) * Math.sin(a);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function speckle(ctx, n, color){
+  ctx.save(); hexPath(ctx, 8); ctx.clip();
+  ctx.fillStyle = color;
+  let seed = 42;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < n; i++){
+    ctx.globalAlpha = 0.15 + rnd() * 0.2;
+    const r = 3 + rnd() * 14;
+    ctx.beginPath(); ctx.arc(rnd() * SIDE, rnd() * SIDE, r, 0, 7); ctx.fill();
+  }
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+
+function hexTile(name, base, spot, edge, label){
+  make(name, ctx => {
+    hexPath(ctx, 4); ctx.fillStyle = base; ctx.fill();
+    speckle(ctx, 90, spot);
+    hexPath(ctx, 10); ctx.strokeStyle = edge; ctx.lineWidth = 14; ctx.stroke();
+    if (label){
+      ctx.fillStyle = "#ffffff"; ctx.globalAlpha = 0.85;
+      ctx.font = "bold 150px system-ui, sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(label, S, S + 55);
+      ctx.globalAlpha = 1;
+    }
+  });
+}
+
+hexTile("hex_ground", "#5d6b52", "#42503a", "#3a4433", "");
+hexTile("hex_elev1",  "#6f6f6c", "#57575a", "#46464a", "1");
+hexTile("hex_elev2",  "#8a8a86", "#6d6d70", "#55555a", "2");
+hexTile("hex_elev3",  "#a5a5a0", "#87878a", "#66666c", "3");
+hexTile("hex_rough",  "#7a6a4f", "#5d4f39", "#4a3f2e", "");
+
+make("structure_wall", ctx => {
+  ctx.fillStyle = "#4a4e59"; ctx.fillRect(0, 0, SIDE, SIDE);
+  ctx.strokeStyle = "#33363e"; ctx.lineWidth = 8;
+  for (let y = 0; y <= SIDE; y += 128){
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(SIDE, y); ctx.stroke();
+    const off = (y / 128) % 2 ? 64 : 128;
+    for (let x = off; x < SIDE; x += 128){
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 128); ctx.stroke();
+    }
+  }
+  ctx.strokeStyle = "#e5484d"; ctx.lineWidth = 16;
+  ctx.strokeRect(8, 8, SIDE - 16, SIDE - 16);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Burning Steel — card face generator</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#222;color:#eee;padding:16px}
+  .card{display:inline-block;margin:10px;text-align:center;vertical-align:top}
+  canvas{max-width:220px;height:auto;border:1px solid #444}
+  a{color:#8cf;display:block;margin-top:6px}
+</style>
+</head>
+<body>
+<h1>Card faces</h1>
+<p>Order / partial / pass cards and the two reference cards. The rule text lives in this
+file — regenerate after a rules change and publish to a NEW
+<code>tts/assets/png/&lt;version&gt;/</code> folder (TTS caches images by URL forever).</p>
+<div id="out"></div>
+
+<script>
+const W = 500, H = 700;
+
+function makeCard(name, draw){
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  draw(cv.getContext("2d"));
+  const div = document.createElement("div");
+  div.className = "card";
+  const a = document.createElement("a");
+  a.id = "dl_" + name;
+  a.download = name + ".png";
+  a.href = cv.toDataURL("image/png");
+  a.textContent = name + ".png";
+  div.appendChild(cv); div.appendChild(a);
+  document.getElementById("out").appendChild(div);
+}
+
+function frame(ctx, bg, edge){
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = edge; ctx.lineWidth = 14;
+  ctx.strokeRect(14, 14, W - 28, H - 28);
+}
+function title(ctx, text, color){
+  ctx.fillStyle = color; ctx.font = "bold 52px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.fillText(text, W / 2, 110);
+}
+function big(ctx, text, y, color, size){
+  ctx.fillStyle = color; ctx.font = "bold " + (size || 88) + "px system-ui, sans-serif";
+  ctx.textAlign = "center"; ctx.fillText(text, W / 2, y);
+}
+function wrap(ctx, text, x, y, maxW, lh, font, color, align){
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || "center";
+  for (const para of text.split("\n")){
+    let line = "";
+    for (const word of para.split(" ")){
+      const t = line ? line + " " + word : word;
+      if (ctx.measureText(t).width > maxW && line){ ctx.fillText(line, x, y); y += lh; line = word; }
+      else line = t;
+    }
+    ctx.fillText(line, x, y); y += lh;
+  }
+  return y;
+}
+function hexMotif(ctx, cx, cy, s, color){
+  ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.beginPath();
+  for (let i = 0; i < 6; i++){
+    const a = Math.PI / 3 * i + Math.PI / 6;
+    const x = cx + s * Math.cos(a), y = cy + s * Math.sin(a);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath(); ctx.stroke();
+}
+
+// ---- Order card ----
+makeCard("card_order", ctx => {
+  frame(ctx, "#1d3557", "#a8dadc");
+  title(ctx, "ORDER", "#f1faee");
+  hexMotif(ctx, W / 2, 300, 120, "#457b9d");
+  big(ctx, "2 AP", 330, "#f1faee");
+  big(ctx, "+1 Reaction", 470, "#a8dadc", 48);
+  wrap(ctx, "Only this mech may use its own order card.", W / 2, 580, 400, 34,
+       "28px system-ui, sans-serif", "#cfe8ea");
+});
+
+// ---- Partial order card ----
+makeCard("card_partial", ctx => {
+  frame(ctx, "#5c3317", "#f5a623");
+  title(ctx, "PARTIAL ORDER", "#ffe8c2");
+  hexMotif(ctx, W / 2, 300, 120, "#a86a2d");
+  big(ctx, "1 AP", 330, "#ffe8c2");
+  big(ctx, "+1 Heat", 470, "#f5a623", 48);
+  wrap(ctx, "Made by a destroyed mech.\nANY mech may use it.", W / 2, 570, 400, 34,
+       "28px system-ui, sans-serif", "#ffd9a0");
+});
+
+// ---- Pass card ----
+makeCard("card_pass", ctx => {
+  frame(ctx, "#3a3f4b", "#9aa0ac");
+  title(ctx, "PASS", "#e8eaee");
+  hexMotif(ctx, W / 2, 320, 120, "#6b7280");
+  wrap(ctx, "The other player becomes the active player.", W / 2, 480, 400, 40,
+       "bold 32px system-ui, sans-serif", "#e8eaee");
+  wrap(ctx, "Does not change the turn number.", W / 2, 600, 400, 32,
+       "26px system-ui, sans-serif", "#b8bec8");
+});
+
+// ---- Shared card back ----
+makeCard("card_back", ctx => {
+  frame(ctx, "#14161c", "#e5484d");
+  for (let r = 0; r < 4; r++) hexMotif(ctx, W / 2, H / 2, 60 + r * 55, "#2b2f3a");
+  hexMotif(ctx, W / 2, H / 2, 115, "#e5484d");
+  ctx.fillStyle = "#f1faee"; ctx.font = "bold 44px system-ui, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("BURNING", W / 2, H / 2 - 10);
+  ctx.fillText("STEEL", W / 2, H / 2 + 44);
+});
+
+// ---- Threshold table reference ----
+makeCard("ref_threshold", ctx => {
+  frame(ctx, "#20242c", "#f5a623");
+  ctx.fillStyle = "#ffe8c2"; ctx.font = "bold 30px system-ui, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("THRESHOLD TABLE (d10)", W / 2, 66);
+  const rows = [
+    ["1-2", "Disabled Hardpoint — roll again for which equipment"],
+    ["3",   "Disabled Jets/Legs — ignore their special rules"],
+    ["4",   "Disabled Pack — ignore it (reroll if no ammo)"],
+    ["5",   "Damaged Computer — no reactions; enemy programs +1; computers ignored"],
+    ["6",   "Damaged Servos — −1 Mo; 2× heat from movement"],
+    ["7",   "Damaged Armor — −1 Dv"],
+    ["8",   "Damaged Radiators — +1 heat per turn"],
+    ["9",   "Injured Pilot — activate last each round; again = destroyed"],
+    ["10",  "System Reboot — turn ends; lose reaction, evasion, unused card; no order next round"],
+  ];
+  let y = 104;
+  for (const [n, txt] of rows){
+    ctx.fillStyle = "#f5a623"; ctx.font = "bold 21px system-ui, sans-serif";
+    ctx.textAlign = "left"; ctx.fillText(n, 40, y);
+    y = wrap(ctx, txt, 92, y, 376, 23, "19px system-ui, sans-serif", "#e8eaee", "left") + 5;
+  }
+  wrap(ctx, "Roll on overheat, at 1/2 HP and at 1/4 HP. Reroll results with no effect.",
+       W / 2, Math.min(y + 4, 646), 420, 22, "italic 17px system-ui, sans-serif", "#9aa0ac");
+});
+
+// ---- Attack table reference ----
+makeCard("ref_attack", ctx => {
+  frame(ctx, "#20242c", "#a8dadc");
+  ctx.fillStyle = "#f1faee"; ctx.font = "bold 36px system-ui, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("ATTACK TABLE", W / 2, 70);
+  ctx.font = "24px system-ui, sans-serif";
+  ctx.fillText("Av = d10 + modifiers, vs Dv", W / 2, 108);
+  const rows = [
+    ["Miss",   "3+ under Dv",        "×0"],
+    ["Chip",   "1–2 under Dv",  "×½"],
+    ["Hit",    "equal or over Dv",   "×1"],
+    ["Crit 1", "Av ≥ 2×Dv","×2"],
+    ["Crit 2", "Av ≥ 3×Dv","×3"],
+    ["Crit 3", "Av ≥ 4×Dv","×4"],
+  ];
+  let y = 175;
+  for (const [a, b, c] of rows){
+    ctx.textAlign = "left";  ctx.fillStyle = "#a8dadc"; ctx.font = "bold 26px system-ui, sans-serif";
+    ctx.fillText(a, 48, y);
+    ctx.fillStyle = "#e8eaee"; ctx.font = "24px system-ui, sans-serif";
+    ctx.fillText(b, 165, y);
+    ctx.textAlign = "right"; ctx.fillText(c, 455, y);
+    y += 44;
+  }
+  ctx.textAlign = "center"; ctx.fillStyle = "#f1faee"; ctx.font = "bold 26px system-ui, sans-serif";
+  ctx.fillText("EVASION (distance moved)", W / 2, y + 26);
+  const ev = [["0–2", "+0 Dv"], ["3–4", "+1 Dv"], ["5–6", "+2 Dv"], ["7+", "+3 Dv"]];
+  let y2 = y + 62;
+  for (const [d, v] of ev){
+    ctx.textAlign = "left";  ctx.fillStyle = "#e8eaee"; ctx.font = "22px system-ui, sans-serif";
+    ctx.fillText(d, 130, y2);
+    ctx.textAlign = "right"; ctx.fillText(v, 370, y2);
+    y2 += 32;
+  }
+  wrap(ctx, "Chip rounds up • cover +1/+2 Dv • 3+ shots −1, 5+ −2, 7+ −3 • height +2: +1 • aim +2 • outside optimal: −2",
+       W / 2, y2 + 8, 434, 21, "17px system-ui, sans-serif", "#9aa0ac");
+});
+</script>
+</body>
+</html>

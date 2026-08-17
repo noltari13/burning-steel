@@ -140,6 +140,53 @@ makeCard("ref_threshold", ctx => {
        W / 2, Math.min(y + 4, 646), 420, 22, "italic 17px system-ui, sans-serif", "#9aa0ac");
 });
 
+// ---- Turn quick-reference ----
+makeCard("ref_actions", ctx => {
+  frame(ctx, "#20242c", "#a8dadc");
+  ctx.fillStyle = "#f1faee"; ctx.font = "bold 24px system-ui, sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("YOUR TURN: 2 AP + 1 REACTION", W / 2, 58);
+  ctx.font = "16px system-ui, sans-serif"; ctx.fillStyle = "#9aa0ac";
+  ctx.fillText("One movement action per turn • each kit once per turn", W / 2, 84);
+  let y = 116;
+  function section(t, color){
+    ctx.textAlign = "left"; ctx.fillStyle = color; ctx.font = "bold 19px system-ui, sans-serif";
+    ctx.fillText(t, 36, y); y += 24;
+  }
+  function item(n, txt){
+    ctx.textAlign = "left"; ctx.fillStyle = "#a8dadc"; ctx.font = "bold 16px system-ui, sans-serif";
+    ctx.fillText(n, 48, y);
+    ctx.fillStyle = "#e8eaee"; ctx.font = "16px system-ui, sans-serif";
+    ctx.fillText(txt, 166, y);
+    y += 22;
+  }
+  section("ATTACKS  (1 AP, weapon once/turn)", "#e5484d");
+  item("Weapon", "roll per shot vs Dv; optimal ±2");
+  item("Slam", "rng 1, 1 shot, −2 acc, wt-class dmg");
+  item("Missile", "hex in range+LoS, no roll; 1 ammo");
+  item("Program", "d10 ± mods vs system defense");
+  item("Assault", "any # identical weapons, +1 heat each");
+  item("Barrage", "2× shots, +1 heat per extra shot");
+  item("Split Fire", "shots split targets, +1 heat/target");
+  y += 6;
+  section("MOVEMENT →  (one per turn)", "#7ec8a9");
+  item("Move", "up to M hexes (always min 1)");
+  item("Dash", "1.5× M, +1 heat per added hex");
+  item("Zig-Zag", "2 AP: move–act–move (≤M), +4 heat");
+  y += 6;
+  section("OTHER", "#f5a623");
+  item("Cooling", "remove 2 heat (+1 per Radiator)");
+  item("Aim", "+2 to hit next attack on target in LoS");
+  item("Hack", "adjacent: S + d10 vs system defense");
+  item("Overwatch", "place small-area token in LoS");
+  item("Withdraw", "2 AP at map edge: leave play");
+  y += 6;
+  section("REACTIONS !  (any turn, 1 pt)", "#c792ea");
+  item("Overwatch!", "enemy enters area: attack at +1");
+  item("Brace!", "pre-roll: ½ dmg; +1 heat +1/reduced");
+  wrap(ctx, "Up a height-1 step costs +1 move; height 2+ is impassable. Climb costs are per Jets/Legs.",
+       W / 2, y + 10, 430, 20, "italic 14px system-ui, sans-serif", "#9aa0ac");
+});
+
 // ---- Attack table reference ----
 makeCard("ref_attack", ctx => {
   frame(ctx, "#20242c", "#a8dadc");

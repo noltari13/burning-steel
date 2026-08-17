@@ -100,6 +100,9 @@ objects = [
     custom_card("bsr202", 21, "Attack table",
                 "Av = d10 + modifiers, compared to Dv.",
                 "ref_attack", -26.0, -10.0),
+    custom_card("bsr203", 22, "Turn quick reference",
+                "2 AP + 1 reaction: attacks, movement, other actions, reactions.",
+                "ref_actions", -26.0, -14.0),
     # Card bags for Round Setup
     infinite_bag("bsb301", "BS_BAG_ORDER", "Order cards",
                  custom_card("bsc311", 30, "Order", "2 AP + 1 reaction. Only this mech.",

@@ -12,6 +12,8 @@ Usage:
   update_save.py [--local] [path-to-save.json]
 With no path it patches BurningSteel.json in the Windows TTS Saves folder.
 --local points ASSET_BASE at the repo's PNGs via file:/// (this machine only).
+--local-pdf points only the rules PDF at the local file (use while the rules
+stay unpublished; images keep coming from GitHub Pages).
 """
 import glob
 import json
@@ -22,7 +24,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LOCAL = "--local" in sys.argv
-args = [a for a in sys.argv[1:] if a != "--local"]
+LOCAL_PDF = "--local-pdf" in sys.argv
+args = [a for a in sys.argv[1:] if a not in ("--local", "--local-pdf")]
 
 if args:
     save_path = pathlib.Path(args[0])
@@ -43,6 +46,14 @@ if LOCAL:
     win = re.sub(r"^/mnt/([a-z])", lambda w: w.group(1).upper() + ":",
                  str(ROOT / "assets/png" / m.group(1)))
     lua += f'\nASSET_BASE = "file:///{win}"  -- --local build\n'
+
+if LOCAL_PDF:
+    m = re.search(r'ASSET_VERSION\s*=\s*"([^"]+)"', lua)
+    if not m:
+        raise SystemExit("ASSET_VERSION not found in the bundle.")
+    win = re.sub(r"^/mnt/([a-z])", lambda w: w.group(1).upper() + ":",
+                 str(ROOT / "assets/png" / m.group(1) / "rules.pdf"))
+    lua += f'\nRULES_PDF_OVERRIDE = "file:///{win}"  -- --local-pdf\n'
 
 m = re.search(r"STATTILE_SCRIPT = \[==\[\n?(.*?)\]==\]", lua, re.S)
 if not m:

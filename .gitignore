@@ -13,3 +13,6 @@
 !tts/
 !tts/**
 tts/build/
+# The full rules stay local by design (like the rules markdown above) —
+# un-ignore deliberately if the rulebook PDF should ship to multiplayer guests.
+tts/assets/png/*/rules.pdf

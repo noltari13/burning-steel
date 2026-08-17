@@ -212,11 +212,69 @@ function applyTint()
   if state.dead then self.setColorTint(DEAD_TINT)
   elseif state.hot then self.setColorTint(HOT_TINT)
   else self.setColorTint(BASE_TINT) end
-  local mini = linkedMini()
-  if mini then
-    if state.hot and not state.dead then mini.highlightOn({1, 0.35, 0.25})
-    else mini.highlightOff() end
+  ensureFx()
+end
+
+-- ---------------- linked-model effects ----------------
+-- Overheating: the mini's highlight pulses between deep and bright red.
+-- Destroyed: animated electrical sparks (vector lines) crackle over it.
+local fxTimer, fxPhase = nil, 0
+
+function ensureFx()
+  local need = state ~= nil and (state.hot or state.dead) and state.link ~= nil
+  if need and fxTimer == nil then
+    fxTimer = Wait.time(fxTick, 0.25, -1)
+  elseif not need and fxTimer ~= nil then
+    Wait.stop(fxTimer)
+    fxTimer = nil
+    local mini = linkedMini()
+    if mini then mini.highlightOff(); mini.setVectorLines({}) end
   end
+end
+
+function fxTick()
+  local mini = linkedMini()
+  if mini == nil then
+    if fxTimer then Wait.stop(fxTimer); fxTimer = nil end
+    return
+  end
+  fxPhase = fxPhase + 0.25
+  if state.dead then
+    mini.highlightOff()
+    mini.setVectorLines(sparkLines(mini))
+  elseif state.hot then
+    mini.setVectorLines({})
+    local k = 0.5 + 0.5 * math.sin(fxPhase * 3.5)
+    mini.highlightOn({0.45 + 0.55 * k, 0.08 + 0.3 * k, 0.05})
+  end
+end
+
+-- Random jagged yellow/orange arcs in the model's local space, sized from
+-- its bounds; redrawn every tick so they flicker like shorting electronics.
+function sparkLines(mini)
+  local sc = mini.getScale()
+  local b = mini.getBoundsNormalized()
+  local h = math.max(0.3, b.size.y / sc.y)          -- local height
+  local r = math.max(0.2, (b.size.x / sc.x) * 0.45) -- local radius
+  local lines = {}
+  for i = 1, 3 + math.random(2) do
+    local a = math.random() * 6.283
+    local x, z = math.cos(a) * r, math.sin(a) * r
+    local y = h * (0.25 + math.random() * 0.65)
+    local pts = { {x, y, z} }
+    for j = 1, 2 do
+      x = x + (math.random() - 0.5) * r
+      y = y + (math.random() - 0.35) * h * 0.3
+      z = z + (math.random() - 0.5) * r
+      table.insert(pts, {x, y, z})
+    end
+    table.insert(lines, {
+      points = pts,
+      color = math.random() < 0.5 and {1, 0.92, 0.45} or {1, 0.6, 0.2},
+      thickness = 0.035,
+    })
+  end
+  return lines
 end
 
 -- ---------------- model linking ----------------
@@ -277,6 +335,7 @@ function unlink()
     mini.clearContextMenu()
     mini.removeTag("BS_LINKED")
     mini.highlightOff()
+    mini.setVectorLines({})
   end
   state.link = nil
   refreshLinkButton()

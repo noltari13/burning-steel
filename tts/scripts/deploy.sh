@@ -4,7 +4,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 DEST=""
-for d in /mnt/c/Users/*/Documents/"My Games"/"Tabletop Simulator"/Saves; do
+for d in /mnt/c/Users/*/Documents/"My Games"/"Tabletop Simulator"/Saves \
+         /mnt/c/Users/*/OneDrive*/Documents/"My Games"/"Tabletop Simulator"/Saves; do
   [ -d "$d" ] && DEST="$d" && break
 done
 if [ -z "$DEST" ]; then

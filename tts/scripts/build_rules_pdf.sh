@@ -13,7 +13,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-OUT="tts/assets/png/v1/rules.pdf"
+# Land in the CURRENT asset version dir. TTS caches by URL forever, so a
+# ruleset drop that changes the PDF must ship in a bumped ASSET_VERSION dir
+# (00_config.lua) alongside re-copied images — never overwrite a published
+# version's pdf in place.
+VER=$(sed -nE 's/^ASSET_VERSION = "([^"]+)".*/\1/p' tts/src/global/00_config.lua)
+OUT="tts/assets/png/${VER:-v1}/rules.pdf"
+mkdir -p "$(dirname "$OUT")"
 TMP_HTML="$(mktemp --suffix=.html)"
 trap 'rm -f "$TMP_HTML"' EXIT
 

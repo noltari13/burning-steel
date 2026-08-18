@@ -14,12 +14,14 @@ end
 
 function uiRoundSetup(player)
   local sides = {}   -- color -> {orders = {name...}, partials = {name...}}
+  local liveTiles = {}
   for _, o in ipairs(getObjectsWithTag(TAG_MECH)) do
     for _, tag in ipairs(o.getTags()) do
       local color = tag:match("^BS_(%a+)$")
       if color and color ~= "MECH" and color ~= "OVERDRIVE" and color ~= "TEMPLATE" and color ~= "LINKED" then
         sides[color] = sides[color] or { orders = {}, partials = {} }
         local name = tileMechName(o)
+        if not bsTileDead(o) then table.insert(liveTiles, o) end
         if bsTileDead(o) then
           -- A destroyed mech makes a partial order card; a destroyed
           -- Overdrive Engine mech makes no order cards at all.
@@ -76,7 +78,36 @@ function uiRoundSetup(player)
   elseif #colors > 2 then
     bsWarn("More than two sides — deal pass cards by hand (the rules define them for two players).")
   end
+  -- Reaction tokens: clear last round's, then one on each living mech's
+  -- tile. Move the token beside the mech when its reaction is spent.
+  for _, o in ipairs(getObjectsWithTag(TAG_REACT)) do destructObject(o) end
+  for _, tile in ipairs(liveTiles) do spawnReactionToken(tile) end
   bsInfo("Play cards onto the timeline in order; all cards must be used this round.")
+end
+
+REACT_TOKEN_SCRIPT = [==[
+function onLoad()
+  self.createButton({click_function = "none", function_owner = self,
+    label = "R", position = {0, 0.22, 0}, width = 0, height = 0,
+    font_size = 260, font_color = {1, 1, 1}})
+end
+function none() end
+]==]
+
+function spawnReactionToken(tile)
+  local name = tileMechName(tile)
+  local p = tile.positionToWorld({ 0.42, 1.2, -0.42 })
+  spawnObjectData({ data = {
+    Name = "Checker_White",
+    Transform = { posX = p.x, posY = p.y, posZ = p.z,
+                  rotX = 0, rotY = tile.getRotation().y, rotZ = 0,
+                  scaleX = 0.8, scaleY = 0.8, scaleZ = 0.8 },
+    Nickname = "Reaction — " .. name,
+    Description = "Reaction point. Move it beside the mech when spent; cleared and re-dealt each Round Setup.",
+    ColorDiffuse = { r = 0.20, g = 0.62, b = 0.28 },
+    Tags = { TAG_REACT },
+    LuaScript = REACT_TOKEN_SCRIPT,
+  } })
 end
 
 -- A card face is a baked image, so the mech name can't be painted into

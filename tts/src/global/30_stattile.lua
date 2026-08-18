@@ -15,7 +15,6 @@ local BASE_TINT = {0.85, 0.85, 0.82}
 local HOT_TINT  = {1.00, 0.42, 0.35}
 local DEAD_TINT = {0.28, 0.28, 0.28}
 local LINK_BTN = 2                 -- creation index of the Link button
-local REACT_BTN = 3                -- creation index of the reaction toggle
 local sheet, state
 local rows = {}          -- {label, kind, key, max, step, valueBtn}
 
@@ -45,7 +44,7 @@ function onSave()
 end
 
 function freshState()
-  local st = { hp = sheet.stats.hp, heat = 0, dead = false, react = false,
+  local st = { hp = sheet.stats.hp, heat = 0, dead = false,
                half = false, quarter = false, hot = false, ammo = {} }
   for _, e in ipairs(sheet.equipment or {}) do
     if e.ammo ~= nil then st.ammo["E:" .. e.name] = e.ammo end
@@ -97,21 +96,15 @@ function buildButtons()
     color = state.dead and {0.5, 0.1, 0.1} or {0.2, 0.4, 0.2}, font_color = {1, 1, 1},
     tooltip = "Toggle destroyed. A destroyed mech makes a partial order card each round."})
   self.createButton({click_function = "pingMini", function_owner = self,
-    label = trim(sheet.name or "Mech", 14), position = bpos(-1.0, -1.85),
-    scale = BSCALE, width = W(1.3), height = W(0.36), font_size = W(0.15),
+    label = trim(sheet.name or "Mech", 16), position = bpos(-0.85, -1.85),
+    scale = BSCALE, width = W(1.6), height = W(0.36), font_size = W(0.16),
     color = {0.15, 0.15, 0.18}, font_color = {1, 1, 1},
     tooltip = "Hover the tile for the full sheet. Click to flash the linked model."})
   self.createButton({click_function = "linkClicked", function_owner = self,
-    label = state.link and "Unlink" or "Link", position = bpos(0.55, -1.85),
-    scale = BSCALE, width = W(0.56), height = W(0.34), font_size = W(0.13),
+    label = state.link and "Unlink" or "Link", position = bpos(0.5, -1.85),
+    scale = BSCALE, width = W(0.62), height = W(0.34), font_size = W(0.14),
     color = {0.2, 0.3, 0.5}, font_color = {1, 1, 1},
     tooltip = "Tie this sheet to a miniature: select the model (or press, then pick the model up)."})
-  self.createButton({click_function = "toggleReact", function_owner = self,
-    label = "R!", position = bpos(-0.05, -1.85),
-    scale = BSCALE, width = W(0.34), height = W(0.34), font_size = W(0.16),
-    color = state.react and {0.2, 0.55, 0.25} or {0.32, 0.32, 0.36},
-    font_color = state.react and {1, 1, 1} or {0.6, 0.6, 0.6},
-    tooltip = "Reaction point: green = available (gained when this mech's order is used), grey = spent/none. Only one at a time."})
   local z0, z1 = -1.3, 1.95
   local step = 0.46
   if #rows > 1 then step = math.min(0.46, (z1 - z0) / (#rows - 1)) end
@@ -210,14 +203,6 @@ function toggleDead()
     or  " is back in play."), {1, 0.75, 0.3})
 end
 
-function toggleReact()
-  state.react = not state.react
-  self.editButton({index = REACT_BTN,
-    color = state.react and {0.2, 0.55, 0.25} or {0.32, 0.32, 0.36},
-    font_color = state.react and {1, 1, 1} or {0.6, 0.6, 0.6}})
-  updateMini()
-end
-
 function refreshDeadButton()
   self.editButton({index = 0, label = state.dead and "DEAD" or "alive",
                    color = state.dead and {0.5, 0.1, 0.1} or {0.2, 0.4, 0.2}})
@@ -313,10 +298,13 @@ function linkClicked(_, playerColor)
   Global.call("bsRequestLink", {tile = self, color = playerColor})
 end
 
--- called by Global when the player picks a model up (link flow)
+function getLinkGuid() return state and state.link or nil end
+
+-- called by Global: link flow pick-up, importer auto-link (silent),
+-- and re-link after a model state switch changes the GUID (silent)
 function completeLink(p)
   state.link = p.guid
-  applyLink(false)
+  applyLink(p.silent == true)
 end
 
 function applyLink(silent)
@@ -335,7 +323,6 @@ function applyLink(silent)
   mini.addContextMenuItem("-1 Heat", function() nudge("heat", -1) end, true)
   mini.addContextMenuItem("Cooling (-" .. (sheet.stats.cooling or 2) .. ")",
     function() nudge("heat", -(sheet.stats.cooling or 2)) end)
-  mini.addContextMenuItem("Reaction gain/spend", function() toggleReact() end, true)
   mini.addContextMenuItem("Unlink sheet", function() unlink() end)
   refreshLinkButton()
   updateMini()
@@ -372,8 +359,7 @@ function updateMini()
   else
     nm = sheet.name .. " [" .. (sheet.wclass or "?") .. "] — " ..
          state.hp .. "/" .. sheet.stats.hp .. " HP, " ..
-         state.heat .. "/" .. sheet.stats.heatCap .. " heat" ..
-         (state.react and " • R!" or "")
+         state.heat .. "/" .. sheet.stats.heatCap .. " heat"
   end
   mini.setName(nm)
 end

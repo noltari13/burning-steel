@@ -42,10 +42,16 @@ save/BurningSteel.json   the deliverable (checked in)
   front of your seat — hover a tile for the full sheet; the buttons track
   HP / heat / every ammo pool (right-click ± for bigger steps). The tile
   announces ½ HP, ¼ HP and overheating, turns red while overheating, and has a
-  DEAD toggle. The **R!** button tracks the reaction point (green = available,
-  grey = spent/none) — toggle it when the mech's order card is used and when a
-  reaction is spent; a linked model shows "• R!" in its name and has a
-  "Reaction gain/spend" context-menu item.
+  DEAD toggle.
+- **Mech models**: tag your bag(s) of miniatures with **BS_MODELS** (Tags
+  gizmo) and importing a warband also spawns one model per mech with every
+  mini from those bags packed in as alternate appearances — hover the model
+  and press number keys, or right-click → States, to scroll to a look you
+  like. Appearance only: the model is pre-linked to its stat tile, and name,
+  sheet, menus and effects re-apply automatically after every switch.
+- **Reaction tokens**: Round Setup places a green **R** token on each living
+  mech's tile (and clears last round's). Move it beside the mech when the
+  reaction is spent — spent/available is visible on the table at a glance.
 - **Link a model**: press **Link** on a stat tile, then pick up your miniature
   (or select the mini first for an instant link). The model gets the sheet as
   its hover description, a live name showing current HP/heat, a right-click

@@ -39,11 +39,82 @@ function uiImportConfirm(player)
   end
   UI.hide("importPanel")
   local n = #data.mechs
+  local models = modelBagData()
   for i, mech in ipairs(data.mechs) do
-    spawnStatTile(mech, data, color, i, n)
+    local tile = spawnStatTile(mech, data, color, i, n)
+    if #models > 0 then
+      local mdl = spawnMechModel(mech, color, i, n, models)
+      if mdl ~= nil then
+        -- auto-link once the tile's injected script has initialized
+        Wait.time(function()
+          if tile ~= nil and mdl ~= nil then
+            pcall(function() tile.call("completeLink", { guid = mdl.getGUID(), silent = true }) end)
+          end
+        end, 2)
+      end
+    end
   end
   bsInfo(color .. " imported \"" .. (data.name or "warband") .. "\" — " .. n ..
          " mech" .. (n > 1 and "s" or "") .. " (rules: " .. (data.variant or "core") .. ").")
+  if #models > 0 then
+    bsInfo("Each mech got a linked model with " .. #models ..
+           " appearances — hover it and press number keys, or right-click > States, to change its look.")
+  else
+    bsInfo("Tip: tag a bag of miniatures with " .. TAG_MODELS ..
+           " (Tags gizmo) and re-import to auto-spawn a scrollable model per mech.")
+  end
+end
+
+-- ---------------- multi-state mech models ----------------
+-- Reads every mini out of the bag(s) tagged BS_MODELS and packs them all
+-- into ONE object per mech as alternate States (right-click > States or
+-- hover + number keys to scroll). Appearance only — name/sheet/links are
+-- reapplied on every switch by onObjectStateChange in Global.
+function modelBagData()
+  local out = {}
+  for _, bag in ipairs(getObjectsWithTag(TAG_MODELS)) do
+    local d = bag.getData()
+    for _, c in ipairs(d.ContainedObjects or {}) do table.insert(out, c) end
+  end
+  return out
+end
+
+local function cleanModelData(src, mech)
+  local d = JSON.decode(JSON.encode(src))   -- deep copy
+  d.States = nil
+  d.LuaScript, d.LuaScriptState, d.XmlUI = "", "", ""
+  d.GUID = nil
+  d.Nickname = mech.name
+  d.Description = "Appearance: hover + number keys, or right-click > States."
+  d.Locked = false
+  d.Tags = { "BS_LINKED" }
+  return d
+end
+
+function spawnMechModel(mech, color, i, n, models)
+  local base = cleanModelData(models[1], mech)
+  if #models > 1 then
+    base.States = {}
+    for j = 2, #models do
+      base.States[tostring(j)] = cleanModelData(models[j], mech)
+    end
+  end
+  local ht = Player[color].getHandTransform()
+  local pos, yaw
+  if ht then
+    local f, r = ht.forward, ht.right
+    local off = (i - 1) - (n - 1) / 2
+    pos = {
+      x = ht.position.x + f.x * 13 + r.x * off * (TILE_SX + 0.6),
+      y = 2.5,
+      z = ht.position.z + f.z * 13 + r.z * off * (TILE_SX + 0.6),
+    }
+    yaw = math.deg(math.atan2(f.x, f.z)) + 180
+  else
+    pos = { x = ((i - 1) - (n - 1) / 2) * (TILE_SX + 0.6), y = 2.5, z = 6 }
+    yaw = 180
+  end
+  return spawnObjectData({ data = base, position = pos, rotation = { 0, yaw, 0 } })
 end
 
 -- Full sheet text shown when hovering the tile (object description).

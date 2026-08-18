@@ -16,6 +16,19 @@ function bsRequestLink(p)
     .. " (press Link again to cancel).")
 end
 
+-- Switching a multi-state model (right-click > States / number keys)
+-- replaces the object and may change its GUID — re-link its tile so the
+-- sheet, name, menus and effects carry over to the new appearance.
+function onObjectStateChange(obj, oldGuid)
+  for _, tile in ipairs(getObjectsWithTag(TAG_MECH)) do
+    local ok, linked = pcall(function() return tile.call("getLinkGuid") end)
+    if ok and linked == oldGuid then
+      tile.call("completeLink", { guid = obj.getGUID(), silent = true })
+      return
+    end
+  end
+end
+
 function onObjectPickUp(color, obj)
   local tile = PENDING_LINK[color]
   if tile == nil then return end

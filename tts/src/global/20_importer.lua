@@ -166,6 +166,7 @@ function spawnStatTile(mech, data, color, i, n)
     scale = { TILE_SX, TILE_SY, TILE_SZ },
     sound = false,
     callback_function = function(o)
+      o.use_grid = false          -- stat tiles live beside the map, not on hexes
       o.setName((mech.name or "Mech") .. " [" .. (mech.wclass or "?") .. "]")
       o.setDescription(sheetDescription(mech))
       o.setColorTint({ 0.85, 0.85, 0.82 })

@@ -104,6 +104,7 @@ function spawnReactionToken(tile)
                   scaleX = 0.8, scaleY = 0.8, scaleZ = 0.8 },
     Nickname = "Reaction — " .. name,
     Description = "Reaction point. Move it beside the mech when spent; cleared and re-dealt each Round Setup.",
+    Grid = false, Snap = false,
     ColorDiffuse = { r = 0.20, g = 0.62, b = 0.28 },
     Tags = { TAG_REACT },
     LuaScript = REACT_TOKEN_SCRIPT,
@@ -155,6 +156,7 @@ function dealFromBag(bagTag, count, color, labels)
       position = { above.x, above.y + 1 + i * 0.4, above.z },
       smooth = false,
       callback_function = function(o)
+        o.use_grid = false        -- cards go to hands and the timeline, not hexes
         if label then
           o.setName(label.name)
           o.setGMNotes(label.text)

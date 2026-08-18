@@ -28,6 +28,7 @@ function uiSpawnTurnRef(player)
       Transform = refTransform(spawnPosFor(player), 1.6),
       Nickname = "Turn quick reference",
       Description = "2 AP + 1 reaction: attacks, movement, other actions, reactions.",
+      Grid = false, Snap = false,
       CardID = 420100,
       CustomDeck = { ["4201"] = {
         FaceURL = ASSET_BASE .. "/ref_actions.png",
@@ -46,6 +47,7 @@ function uiSpawnRules(player)
       Transform = refTransform(spawnPosFor(player), 1),
       Nickname = "Burning Steel — full rules",
       Description = "Use the arrows on the object to turn pages. Alt-zoom to read.",
+      Grid = false, Snap = false,
       CustomPDF = {
         PDFUrl = rulesPdfUrl(),
         PDFPassword = "",

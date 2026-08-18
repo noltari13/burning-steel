@@ -42,7 +42,10 @@ save/BurningSteel.json   the deliverable (checked in)
   front of your seat — hover a tile for the full sheet; the buttons track
   HP / heat / every ammo pool (right-click ± for bigger steps). The tile
   announces ½ HP, ¼ HP and overheating, turns red while overheating, and has a
-  DEAD toggle.
+  DEAD toggle. The **R!** button tracks the reaction point (green = available,
+  grey = spent/none) — toggle it when the mech's order card is used and when a
+  reaction is spent; a linked model shows "• R!" in its name and has a
+  "Reaction gain/spend" context-menu item.
 - **Link a model**: press **Link** on a stat tile, then pick up your miniature
   (or select the mini first for an instant link). The model gets the sheet as
   its hover description, a live name showing current HP/heat, a right-click

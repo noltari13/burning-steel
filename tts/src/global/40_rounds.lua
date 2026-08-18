@@ -91,7 +91,7 @@ function onLoad()
   if text == nil or text == "" then return end
   self.createButton({
     click_function = "none", function_owner = self, label = text,
-    position = {0, 0.3, -0.42}, width = 0, height = 0,
+    position = {0, 0.3, -0.56}, width = 0, height = 0,
     font_size = string.len(text) > 14 and 90 or 120,
     font_color = {1, 1, 1},
   })

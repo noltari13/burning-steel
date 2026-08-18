@@ -52,11 +52,11 @@ function uiRoundSetup(player)
     totals[c] = #s.orders + #s.partials
     local orderLabels = {}
     for _, n in ipairs(s.orders) do
-      table.insert(orderLabels, "Order — " .. n)
+      table.insert(orderLabels, { name = "Order — " .. n, text = n })
     end
     local partialLabels = {}
     for _, n in ipairs(s.partials) do
-      table.insert(partialLabels, "Partial order (from " .. n .. ")")
+      table.insert(partialLabels, { name = "Partial order (from " .. n .. ")", text = "from " .. n })
     end
     dealFromBag(TAG_BAG_ORDER, #s.orders, c, orderLabels)
     dealFromBag(TAG_BAG_PARTIAL, #s.partials, c, partialLabels)
@@ -79,10 +79,31 @@ function uiRoundSetup(player)
   bsInfo("Play cards onto the timeline in order; all cards must be used this round.")
 end
 
+-- A card face is a baked image, so the mech name can't be painted into
+-- it — instead each dealt card gets a zero-size "button", which TTS
+-- renders as floating text on the card. Buttons are hidden while the
+-- card is in a hand (the name tooltip covers that); on the table — the
+-- timeline — the name is visible on the card itself. The display text
+-- rides in GM Notes.
+CARD_LABEL_SCRIPT = [==[
+function onLoad()
+  local text = self.getGMNotes()
+  if text == nil or text == "" then return end
+  self.createButton({
+    click_function = "none", function_owner = self, label = text,
+    position = {0, 0.3, -0.42}, width = 0, height = 0,
+    font_size = string.len(text) > 14 and 90 or 120,
+    font_color = {1, 1, 1},
+  })
+end
+function none() end
+]==]
+
 local warnedNoBags = false
--- labels: optional per-card names (e.g. "Order — Squall"). A mech order
--- card may only be used by its own mech, so naming the card enforces at
--- a glance what the rules already require.
+-- labels: optional per-card {name, text} — name becomes the tooltip
+-- ("Order — Squall"), text is printed on the card face when it's on
+-- the table. A mech order card may only be used by its own mech, so
+-- labeling enforces at a glance what the rules already require.
 function dealFromBag(bagTag, count, color, labels)
   if count <= 0 then return end
   local bag = getObjectsWithTag(bagTag)[1]
@@ -103,7 +124,11 @@ function dealFromBag(bagTag, count, color, labels)
       position = { above.x, above.y + 1 + i * 0.4, above.z },
       smooth = false,
       callback_function = function(o)
-        if label then o.setName(label) end
+        if label then
+          o.setName(label.name)
+          o.setGMNotes(label.text)
+          o.setLuaScript(CARD_LABEL_SCRIPT)
+        end
         o.deal(1, color)
       end,
     })

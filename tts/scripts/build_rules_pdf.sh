@@ -2,10 +2,10 @@
 # Render "Revised Burning Steel.md" (the current ruleset) to a PDF the TTS
 # mod can load as a Custom PDF object.
 #
-# NOTE: the rules are local-only by design (see update_ruleset.sh) — the
-# output goes to tts/assets/png/v1/rules.pdf, which is GITIGNORED. The mod
-# reads it via file:/// on this machine. Publishing it (for multiplayer
-# guests) is a deliberate step: un-ignore it, commit, push.
+# The output (tts/assets/png/v1/rules.pdf) is COMMITTED and served from
+# GitHub Pages with the other assets, so multiplayer guests can read the
+# rulebook in-game. The rules markdown/docx themselves stay gitignored.
+# Re-run this script and push after each ruleset drop.
 #
 # The markdown has the docx's images stripped, so diagrams are absent. To
 # ship the exact original rendering instead, export a PDF from Word and

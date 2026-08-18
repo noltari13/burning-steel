@@ -5,22 +5,32 @@
 -- ==================================================================
 ROUND_NUMBER = 0
 
+-- The tile's mech name, read from its GM Notes snapshot.
+local function tileMechName(tile)
+  local ok, s = pcall(function() return JSON.decode(tile.getGMNotes()) end)
+  if ok and type(s) == "table" and s.name then return s.name end
+  return tile.getName()
+end
+
 function uiRoundSetup(player)
-  local sides = {}   -- color -> {orders = n, partials = n}
+  local sides = {}   -- color -> {orders = {name...}, partials = {name...}}
   for _, o in ipairs(getObjectsWithTag(TAG_MECH)) do
     for _, tag in ipairs(o.getTags()) do
       local color = tag:match("^BS_(%a+)$")
-      if color and color ~= "MECH" and color ~= "OVERDRIVE" and color ~= "TEMPLATE" then
-        sides[color] = sides[color] or { orders = 0, partials = 0 }
+      if color and color ~= "MECH" and color ~= "OVERDRIVE" and color ~= "TEMPLATE" and color ~= "LINKED" then
+        sides[color] = sides[color] or { orders = {}, partials = {} }
+        local name = tileMechName(o)
         if bsTileDead(o) then
           -- A destroyed mech makes a partial order card; a destroyed
           -- Overdrive Engine mech makes no order cards at all.
           if not o.hasTag(TAG_OVERDRIVE) then
-            sides[color].partials = sides[color].partials + 1
+            table.insert(sides[color].partials, name)
           end
         else
-          sides[color].orders = sides[color].orders + 1
-            + (o.hasTag(TAG_OVERDRIVE) and 1 or 0)
+          table.insert(sides[color].orders, name)
+          if o.hasTag(TAG_OVERDRIVE) then
+            table.insert(sides[color].orders, name .. " (Overdrive)")
+          end
         end
       end
     end
@@ -39,11 +49,19 @@ function uiRoundSetup(player)
   local totals = {}
   for _, c in ipairs(colors) do
     local s = sides[c]
-    totals[c] = s.orders + s.partials
-    dealFromBag(TAG_BAG_ORDER, s.orders, c)
-    dealFromBag(TAG_BAG_PARTIAL, s.partials, c)
-    bsInfo(c .. ": " .. s.orders .. " order" .. (s.orders == 1 and "" or "s")
-      .. (s.partials > 0 and (" + " .. s.partials .. " partial") or ""))
+    totals[c] = #s.orders + #s.partials
+    local orderLabels = {}
+    for _, n in ipairs(s.orders) do
+      table.insert(orderLabels, "Order — " .. n)
+    end
+    local partialLabels = {}
+    for _, n in ipairs(s.partials) do
+      table.insert(partialLabels, "Partial order (from " .. n .. ")")
+    end
+    dealFromBag(TAG_BAG_ORDER, #s.orders, c, orderLabels)
+    dealFromBag(TAG_BAG_PARTIAL, #s.partials, c, partialLabels)
+    bsInfo(c .. ": " .. #s.orders .. " order" .. (#s.orders == 1 and "" or "s")
+      .. (#s.partials > 0 and (" + " .. #s.partials .. " partial") or ""))
   end
 
   -- Pass cards: only defined for a two-sided game.
@@ -62,7 +80,10 @@ function uiRoundSetup(player)
 end
 
 local warnedNoBags = false
-function dealFromBag(bagTag, count, color)
+-- labels: optional per-card names (e.g. "Order — Squall"). A mech order
+-- card may only be used by its own mech, so naming the card enforces at
+-- a glance what the rules already require.
+function dealFromBag(bagTag, count, color, labels)
   if count <= 0 then return end
   local bag = getObjectsWithTag(bagTag)[1]
   if bag == nil then
@@ -77,10 +98,14 @@ function dealFromBag(bagTag, count, color)
   -- at the hand position by rotation guesswork faced cards away from players.
   local above = bag.getPosition()
   for i = 1, count do
+    local label = labels and labels[i]
     bag.takeObject({
       position = { above.x, above.y + 1 + i * 0.4, above.z },
       smooth = false,
-      callback_function = function(o) o.deal(1, color) end,
+      callback_function = function(o)
+        if label then o.setName(label) end
+        o.deal(1, color)
+      end,
     })
   end
 end

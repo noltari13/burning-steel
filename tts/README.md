@@ -66,12 +66,12 @@ save/BurningSteel.json   the deliverable (checked in)
   `GRID_OFFSET_X/Z` in `src/global/50_templates.lua`. (The old template PNGs
   remain in `assets/png/` but are no longer used.)
 - **Turn Ref / Rules** (toolbar): spawn the turn quick-reference card, or the
-  full rulebook as a page-turnable PDF object. The PDF is built locally by
+  full rulebook as a page-turnable PDF object. The PDF is built by
   `scripts/build_rules_pdf.sh` (pandoc + playwright from the rules markdown)
-  and is **gitignored like the rules themselves** — the mod loads it via
-  file:/// on this machine (`update_save.py --local-pdf`). To let multiplayer
-  guests read it, un-ignore `tts/assets/png/v1/rules.pdf`, commit, push, and
-  re-run `update_save.py` without the flag.
+  and published with the other assets, so multiplayer guests can read it.
+  Re-run that script and push after each ruleset drop. (`update_save.py
+  --local-pdf` exists to point at the local file while testing an unpushed
+  ruleset.)
 - **Attack Roller**: shots, accuracy, target Dv, damage per shot → per-die
   results and total damage in chat. Dv includes evasion/cover; accuracy
   includes the mech's to-hit bonus (both printed on the stat tile).
